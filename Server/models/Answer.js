@@ -60,8 +60,6 @@ const answerSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-
-  // 🔁 Per-Student Question Order (Critical Fix!)
   generatedQuestions: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Question' 
@@ -70,8 +68,6 @@ const answerSchema = new mongoose.Schema({
 }, { 
   timestamps: true 
 });
-
-// 🔁 Add compound index to prevent duplicates
 answerSchema.index({ studentId: 1, examId: 1 }, { unique: true });
 
 module.exports = mongoose.model("Answer", answerSchema);

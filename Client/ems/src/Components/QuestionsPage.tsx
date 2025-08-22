@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiService } from '../services/apiService';
 import type { Question } from '../types';
-import { FiPlus, FiEdit, FiTrash2, FiX, FiAlertCircle } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiX, FiAlertCircle, FiLoader } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 
 const QuestionPage: React.FC = () => {
@@ -9,6 +9,7 @@ const QuestionPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [newQuestion, setNewQuestion] = useState({
     question: '',
@@ -26,9 +27,9 @@ const QuestionPage: React.FC = () => {
     'General Awareness',
   ] as const;
 
-  // Fetch questions by program
   useEffect(() => {
     const fetchQuestions = async () => {
+      setIsLoading(true); // Start loading
       try {
         const data = await apiService.getQuestionsByProgram(selectedProgram);
         setQuestions(data);
@@ -36,6 +37,8 @@ const QuestionPage: React.FC = () => {
         console.error('Error fetching questions:', error);
         toast.error(error.message || 'Failed to load questions');
         setQuestions([]);
+      } finally {
+        setIsLoading(false); // Stop loading
       }
     };
     fetchQuestions();
@@ -228,80 +231,85 @@ const QuestionPage: React.FC = () => {
 
         {/* Questions List */}
         <div className="space-y-5">
-          {questions.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+              <FiLoader className="animate-spin text-[#DC143C] mx-auto mb-4" size={24} />
+              <p className="text-[#666666]">Fetching questions for {selectedProgram}...</p>
+            </div>
+          ) : questions.length > 0 ? (
             questions.map((question, index) => (
-              <div
-                key={question._id}
-                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-                  {/* Question & Options */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="bg-[#FEECEB] text-[#DC143C] text-sm font-bold px-3 py-1 rounded-full border border-[#DC143C]/30">
-                        #{index + 1}
-                      </span>
-                      <span
-                        className={`text-xs font-medium px-3 py-1 rounded-full ${getCategoryColor(
-                          question.category
-                        )}`}
-                      >
-                        {question.category}
-                      </span>
-                    </div>
+          <div
+            key={question._id}
+            className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+              {/* Question & Options */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="bg-[#FEECEB] text-[#DC143C] text-sm font-bold px-3 py-1 rounded-full border border-[#DC143C]/30">
+                    #{index + 1}
+                  </span>
+                  <span
+                    className={`text-xs font-medium px-3 py-1 rounded-full ${getCategoryColor(
+                      question.category
+                    )}`}
+                  >
+                    {question.category}
+                  </span>
+                </div>
 
-                    <h3 className="text-lg font-semibold text-[#333333] mb-4 leading-relaxed">
-                      {question.question}
-                    </h3>
+                <h3 className="text-lg font-semibold text-[#333333] mb-4 leading-relaxed">
+                  {question.question}
+                </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                      {question.options.map((option, idx) => (
-                        <div
-                          key={idx}
-                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 font-medium ${getOptionStyle(
-                            option,
-                            question.correctAnswer
-                          )}`}
-                        >
-                          <span className="font-bold text-gray-500 w-5">
-                            {String.fromCharCode(97 + idx)}.
-                          </span>
-                          <span className="truncate">{option}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col space-y-3 min-w-max">
-                    <button
-                      onClick={() => startEditing(question)}
-                      className="flex items-center gap-2 px-4 py-2 text-[#DC143C] hover:text-[#c41234] hover:bg-red-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {question.options.map((option, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 font-medium ${getOptionStyle(
+                        option,
+                        question.correctAnswer
+                      )}`}
                     >
-                      <FiEdit size={16} /> Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteQuestion(question._id, question.question)}
-                      className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 text-sm font-medium"
-                    >
-                      <FiTrash2 size={16} /> Delete
-                    </button>
-                  </div>
+                      <span className="font-bold text-gray-500 w-5">
+                        {String.fromCharCode(97 + idx)}.
+                      </span>
+                      <span className="truncate">{option}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-              <FiAlertCircle className="mx-auto text-[#666666]" size={48} />
-              <h3 className="text-lg font-medium text-[#333333] mt-4">No questions found</h3>
-              <p className="text-[#666666] mt-1">No questions for <strong>{selectedProgram}</strong> program.</p>
-              <button
-                onClick={() => setIsDialogOpen(true)}
-                className="mt-4 px-5 py-2 bg-[#DC143C] hover:bg-[#c41234] text-white rounded-lg transition"
-              >
-                Add Your First Question
-              </button>
+
+              {/* Actions */}
+              <div className="flex flex-col space-y-3 min-w-max">
+                <button
+                  onClick={() => startEditing(question)}
+                  className="flex items-center gap-2 px-4 py-2 text-[#DC143C] hover:text-[#c41234] hover:bg-red-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+                >
+                  <FiEdit size={16} /> Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteQuestion(question._id, question.question)}
+                  className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+                >
+                  <FiTrash2 size={16} /> Delete
+                </button>
+              </div>
             </div>
+          </div>
+          ))
+          ) : (
+          <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+            <FiAlertCircle className="mx-auto text-[#666666]" size={48} />
+            <h3 className="text-lg font-medium text-[#333333] mt-4">No questions found</h3>
+            <p className="text-[#666666] mt-1">No questions for <strong>{selectedProgram}</strong> program.</p>
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="mt-4 px-5 py-2 bg-[#DC143C] hover:bg-[#c41234] text-white rounded-lg transition"
+            >
+              Add Your First Question
+            </button>
+          </div>
           )}
         </div>
 

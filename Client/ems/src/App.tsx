@@ -15,8 +15,6 @@ import StudentDashboard from './Components/StudentDashboard';
 import ExamInterface from './Components/ExamInterface';
 import Profile from './Components/Profile';
 
-
-// Error Boundary Component
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
 
@@ -25,7 +23,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('🚨 ErrorBoundary caught an error:', error, errorInfo);
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   render() {
@@ -54,13 +52,12 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
   }
 }
 
-// Location Debugger Component (only in development)
 const LocationDebugger: FC = () => {
   const location = useLocation();
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🗺️ Route changed:', {
+      console.log('Route changed:', {
         pathname: location.pathname,
         search: location.search,
         hash: location.hash,
@@ -71,7 +68,6 @@ const LocationDebugger: FC = () => {
   return null;
 };
 
-// Loading component
 const LoadingScreen: FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
     <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-sm">
@@ -85,7 +81,6 @@ const LoadingScreen: FC = () => (
   </div>
 );
 
-// Auth validation hook
 const useAuthValidation = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<'admin' | 'student' | null>(null);
@@ -93,28 +88,13 @@ const useAuthValidation = () => {
 
   useEffect(() => {
     const validateToken = async () => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔐 App: Initiating token validation...');
-      }
-      
       setIsLoading(true);
 
       const token = localStorage.getItem('authToken');
       const adminData = localStorage.getItem('admin');
       const studentData = localStorage.getItem('student');
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 App: Checking stored data:', {
-          hasToken: !!token,
-          hasAdminData: !!adminData,
-          hasStudentData: !!studentData,
-        });
-      }
-
       if (!token) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('❌ App: No token found, skipping validation');
-        }
         setIsAuthenticated(false);
         setUserRole(null);
         setIsLoading(false);
@@ -122,39 +102,24 @@ const useAuthValidation = () => {
       }
 
       try {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🌐 App: Sending token validation request to server...');
-        }
-        
         const response = await axios.get('http://localhost:5000/api/auth/validate-token', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📨 App: Token validation response:', response.data);
-        }
-
         if (response.data.success) {
           const detectedRole = adminData ? 'admin' : studentData ? 'student' : null;
           if (!detectedRole) {
-            console.warn('⚠️ App: Token valid but no role detected, clearing data');
+            console.warn('Token valid but no role detected, clearing data');
             localStorage.removeItem('authToken');
             localStorage.removeItem('admin');
             localStorage.removeItem('student');
             setIsAuthenticated(false);
             setUserRole(null);
           } else {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('👤 App: Setting auth state:', {
-                role: detectedRole,
-                authenticated: true,
-              });
-            }
             setUserRole(detectedRole);
             setIsAuthenticated(true);
           }
         } else {
-          console.log('❌ App: Token validation failed:', response.data.message);
           localStorage.removeItem('authToken');
           localStorage.removeItem('admin');
           localStorage.removeItem('student');
@@ -162,38 +127,24 @@ const useAuthValidation = () => {
           setUserRole(null);
         }
       } catch (error: any) {
-        console.error('🚨 App: Token validation error:', {
+        console.error('Token validation error:', {
           message: error.message,
           status: error.response?.status,
           data: error.response?.data,
         });
         
-        // Clear invalid tokens
         localStorage.removeItem('authToken');
         localStorage.removeItem('admin');
         localStorage.removeItem('student');
         setIsAuthenticated(false);
         setUserRole(null);
       } finally {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('✅ App: Token validation completed');
-        }
         setIsLoading(false);
       }
     };
 
     validateToken();
   }, []);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🎭 App: Authentication state updated:', {
-        isAuthenticated,
-        userRole,
-        isLoading,
-      });
-    }
-  }, [isAuthenticated, userRole, isLoading]);
 
   return { isAuthenticated, setIsAuthenticated, userRole, setUserRole, isLoading };
 };
@@ -202,14 +153,7 @@ const App: FC = () => {
   const { isAuthenticated, setIsAuthenticated, userRole, setUserRole, isLoading } = useAuthValidation();
 
   if (isLoading) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('⏳ App: Rendering loading state...');
-    }
     return <LoadingScreen />;
-  }
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🚀 App: Rendering main application:', { isAuthenticated, userRole });
   }
 
   return (
@@ -230,7 +174,6 @@ const App: FC = () => {
           className="z-50"
         />
         <Routes>
-          {/* Root Route */}
           <Route
             path="/"
             element={
@@ -248,10 +191,8 @@ const App: FC = () => {
             }
           />
 
-          {/* Reset Password Route */}
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Admin Dashboard Routes */}
           <Route
             path="/admin-dashboard"
             element={
@@ -271,7 +212,6 @@ const App: FC = () => {
             <Route path="*" element={<Navigate to="/admin-dashboard" replace />} />
           </Route>
 
-          {/* Student Dashboard Route */}
           <Route
             path="/student-dashboard"
             element={
@@ -285,7 +225,6 @@ const App: FC = () => {
             <Route path="profile" element={<Profile />} />
           </Route>
 
-          {/* Exam Interface Route */}
           <Route
             path="/exam/:examId"
             element={
@@ -297,7 +236,6 @@ const App: FC = () => {
             }
           />
 
-          {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

@@ -23,13 +23,11 @@ const {
   getResultsByProgram,
   getquestionByProgram,
   getquestionbyId
-} = require("../controllers/adminController");  // Verify this path is correct
+} = require("../controllers/adminController");
 
-// Protect all admin routes with authMiddleware for admin role
 router.use(authMiddleware("admin"));
 
-// Student routes
-router.get("/users", getAllStudents);  // Now using the correct function
+router.get("/users", getAllStudents);
 router.post("/students", createStudent);
 router.put("/students/:id", updateStudent);
 router.delete("/students/:id", deleteStudent);
@@ -42,12 +40,11 @@ router.put("/questions/:questionId", updateQuestion);
 router.delete("/questions/:questionId", deleteQuestion);
 router.get("/exams/:examId/questions", getExamQuestions);
 router.post("/exams/:examId/questions", addQuestionsToExam);
-router.get("/results", getAllResults); // Updated route
-router.get("/results/:resultId/pdf", downloadResultPDF);
+router.get("/results", getAllResults);
 router.post("/results/:resultId/congratulation", sendCongratulationEmail);
 router.post("/notify-students", notifyStudents)
 router.get('/results', authMiddleware('admin'), getResultsByProgram)
-router.get('/questions',getquestionByProgram)
-router.post('/questions/by-ids',getquestionbyId)
+router.get('/questions', getquestionByProgram)
+router.post('/questions/by-ids', getquestionbyId)
 
 module.exports = router;

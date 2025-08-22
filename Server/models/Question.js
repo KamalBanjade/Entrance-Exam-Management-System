@@ -15,7 +15,7 @@ const questionSchema = new mongoose.Schema({
   },
   examId: { 
     type: String, 
-    required: false, // ← Now optional
+    required: false,
     ref: 'Exam' 
   }
 }, { timestamps: true });

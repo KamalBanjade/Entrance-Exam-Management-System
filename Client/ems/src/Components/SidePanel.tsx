@@ -88,17 +88,17 @@ const SidePanel: React.FC<SidePanelProps> = ({ userRole, collapsed, setCollapsed
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 pb-3 border-b border-red-400 bg-white shadow-sm">
+      <div className="flex items-center justify-between p-3 pb-4 border-b border-red-400 bg-white shadow-sm">
         <div className="flex items-center">
-          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-sm">
             <img src={logo} alt="Logo" className="h-full w-auto" />
           </div>
           {!collapsed && (
-            <div className="ml-3">
-              <h2 className="text-md font-bold text-gray-800">Crimson College</h2>
+            <div className="ml-2">
+              <h2 className="text-lg font-bold text-gray-800">Crimson College</h2>
               <div className="flex items-center">
                 <p className="text-sm text-gray-500 italic">Of Technology</p>
-                <div className="w-8 h-0.5 bg-red-500 ml-3 mt-3"></div>
+                <div className="w-9 h-0.5 bg-red-600 ml-2 mt-3"></div>
               </div>
             </div>
           )}
@@ -114,14 +114,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ userRole, collapsed, setCollapsed
             bg-red-50 hover:bg-red-100 
             text-red-600 
             transition
+            mb-6
           `}
           title="Collapse sidebar"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={14} />
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-2 py-6 space-y-1">
         {navItems.map((item, index) => (
           <a

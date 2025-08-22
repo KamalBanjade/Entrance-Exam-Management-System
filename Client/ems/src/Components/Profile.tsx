@@ -11,7 +11,7 @@ interface User {
   dob?: string;
   email: string;
   phone: string;
-  program?: "BSCIT" | "BCA" | "BBA" | null;
+  program?: "BCSIT" | "BCA" | "BBA" | null;
   createdAt: string;
 }
 

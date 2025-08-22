@@ -8,161 +8,11 @@ const examScheduler = require('../schedulers/examTimerScheduler');
 const { generateEmailTemplate } = require('../utils/emailTemplates');
 const { sendSMS } = require('../utils/smsService');
 const mongoose = require("mongoose");
+const moment = require('moment');
 
-// Backend Controller - Enhanced createStudent function
 const createStudent = async (req, res) => {
   try {
     const { name, username, dob, email, phone, program, password, examTitle, examDate, examTime, examDuration } = req.body;
-
-    // ===== VALIDATION SECTION =====
-    
-    // Required field validation
-    if (!name?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Name is required',
-      });
-    }
-
-    if (!username?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username is required',
-      });
-    }
-
-    if (!email?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required',
-      });
-    }
-
-    if (!program) {
-      return res.status(400).json({
-        success: false,
-        message: 'Program selection is required',
-      });
-    }
-
-    if (!password?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password is required',
-      });
-    }
-
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please enter a valid email address',
-      });
-    }
-
-    // Phone validation (if provided)
-    if (phone && phone.trim()) {
-      const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
-      if (!phoneRegex.test(phone.trim())) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid phone number',
-        });
-      }
-    }
-
-    // Program validation
-    const validPrograms = ['BCSIT', 'BCA', 'BBA'];
-    if (!validPrograms.includes(program)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please select a valid program (BCSIT, BCA, or BBA)',
-      });
-    }
-
-    // Date of birth validation (if provided)
-    if (dob) {
-      const dobDate = new Date(dob);
-      const today = new Date();
-      const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
-      const maxAge = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
-      
-      if (dobDate > minAge) {
-        return res.status(400).json({
-          success: false,
-          message: 'Student must be at least 16 years old',
-        });
-      }
-      
-      if (dobDate < maxAge) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid date of birth',
-        });
-      }
-    }
-
-    // Exam validation (if exam details provided)
-    if (examTitle || examDate || examTime || examDuration) {
-      if (!examTitle?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam title is required when scheduling an exam',
-        });
-      }
-
-      if (!examDate) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam date is required when scheduling an exam',
-        });
-      }
-
-      if (!examTime) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam time is required when scheduling an exam',
-        });
-      }
-
-      if (!examDuration || examDuration <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam duration must be greater than 0 minutes',
-        });
-      }
-
-      // Validate exam date is in future
-      const moment = require('moment');
-      const examDateTime = moment(`${examDate} ${examTime}`, 'YYYY-MM-DD HH:mm');
-      const now = moment();
-      
-      if (!examDateTime.isValid()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid exam date and time',
-        });
-      }
-
-      if (examDateTime.isBefore(now)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam date and time must be in the future',
-        });
-      }
-
-      // Validate exam is not too far in future (optional - 1 year limit)
-      const oneYearFromNow = moment().add(1, 'year');
-      if (examDateTime.isAfter(oneYearFromNow)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exam date cannot be more than one year in the future',
-        });
-      }
-    }
-
-    // Check for existing user
     const existingUser = await User.findOne({
       $or: [{ username: username.trim() }, { email: email.trim() }],
     });
@@ -175,7 +25,6 @@ const createStudent = async (req, res) => {
       });
     }
 
-    // ===== STUDENT CREATION =====
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const student = new User({
@@ -189,7 +38,6 @@ const createStudent = async (req, res) => {
       role: 'student',
     });
 
-    // ===== EXAM CREATION (if provided) =====
     let exam = null;
     if (examTitle && examDate && examTime && examDuration) {
       const moment = require('moment');
@@ -208,50 +56,50 @@ const createStudent = async (req, res) => {
       });
     }
 
-    // ===== EMAIL PREPARATION =====
     const smsText = `Dear ${name.trim()},
-Welcome to Crimson College.
+          Welcome to Crimson College.
 
-Account Details:
-Username: ${username.trim()}
-Password: ${password}
-Program: ${program}
+          Account Details:
+          Username: ${username.trim()}
+          Password: ${password}
+          Program: ${program}
 
-${examTitle ? `Exam Details:
-Title: ${examTitle.trim()}
-Date: ${examDate}
-Time: ${examTime}
-Duration: ${examDuration} min
+          ${examTitle ? `Exam Details:
+          Title: ${examTitle.trim()}
+          Date: ${examDate}
+          Time: ${examTime}
+          Duration: ${examDuration} min
 
-` : ''}Thank you,
-CCT Team`;
+          ` : ''}Thank you,
+          CCT Team`;
 
     const plainText = `
-Dear ${name.trim()},
+      Dear ${name.trim()},
 
-Your student account has been successfully created! Welcome to Crimson College.
+      Your student account has been successfully created! Welcome to Crimson College.
 
-Account Details:
-- Username: ${username.trim()}
-- Password: ${password}
-- Date of Birth: ${dob || 'Not provided'}
-- Program: ${program}
+      Account Details:
+      - Username: ${username.trim()}
+      - Password: ${password}
+      - Date of Birth: ${dob || 'Not provided'}
+      - Program: ${program}
 
-${examTitle ? `
-Exam Details:
-- Title: ${examTitle.trim()}
-- Date: ${examDate}
-- Time: ${examTime}
-- Duration: ${examDuration} minutes
-` : ''}
+      ${examTitle ? `
+      Exam Details:
+      - Title: ${examTitle.trim()}
+      - Date: ${examDate}
+      - Time: ${examTime}
+      - Duration: ${examDuration} minutes
+      ` : ''}
 
-Please keep your password secure. For security, change your password after first login.
-Log in to view your exams: ${process.env.CLIENT_URL || 'https://your-exam-system.com/login'}
+      Please keep your password secure. For security, change your password after first login.
+      Log in to view your exams: ${process.env.CLIENT_URL || 'https://your-exam-system.com/login'}
 
-Best regards,
-Crimson College Of Technology
-    `.trim();
+      Best regards,
+      Crimson College Of Technology
+          `.trim();
 
+    // Prepare HTML email
     const loginUrl = process.env.CLIENT_URL || 'https://your-exam-system.com/login';
     const welcomeEmailContent = `
       <p class="greeting">Dear ${name.trim()},</p>
@@ -289,7 +137,6 @@ Crimson College Of Technology
       `,
     });
 
-    // ===== CRITICAL: SEND EMAIL FIRST =====
     try {
       await sendEmail(
         email.trim(),
@@ -297,7 +144,6 @@ Crimson College Of Technology
         emailHtml,
         plainText
       );
-      console.log('✅ Welcome email sent successfully to:', email.trim());
     } catch (emailError) {
       console.error('❌ Failed to send welcome email:', emailError);
       return res.status(500).json({
@@ -307,36 +153,24 @@ Crimson College Of Technology
       });
     }
 
-    // ===== SAVE STUDENT (only after successful email) =====
     await student.save();
-    console.log('✅ Student saved successfully:', student.username);
 
-    // ===== SAVE EXAM (if provided) =====
     if (exam) {
-      exam.studentId = student._id; // Update with actual student ID
+      exam.studentId = student._id;
       await exam.save();
-      console.log('✅ Exam saved successfully:', exam.title);
-
-      // Schedule the exam
       const examScheduler = require('../schedulers/examTimerScheduler');
       if (exam.status === 'scheduled') {
         examScheduler.scheduleExam(exam);
-        console.log(`⏰ Scheduled auto-start and auto-completion for student exam: "${exam.title}"`);
       }
     }
 
-    // ===== SEND SMS (optional, after successful save) =====
     if (phone?.trim()) {
       try {
         await sendSMS(phone.trim(), smsText);
-        console.log('✅ Welcome SMS sent successfully to:', phone.trim());
       } catch (smsError) {
-        console.error('⚠️ Failed to send welcome SMS (student still created):', smsError);
-        // Don't fail the request if SMS fails, just log it
+        console.error('Failed to send welcome SMS:', smsError);
       }
     }
-
-    // ===== SUCCESS RESPONSE =====
     const studentResponse = student.toObject();
     delete studentResponse.password;
 
@@ -348,7 +182,7 @@ Crimson College Of Technology
     });
 
   } catch (error) {
-    console.error('❌ Error creating student:', error);
+    console.error('Error creating student:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -357,20 +191,17 @@ Crimson College Of Technology
   }
 };
 
-// Get all students
+
 const getAllStudents = async (req, res) => {
   try {
-    // Fetch all students
     const students = await User.find({ role: "student" }).select("-password").lean();
-
-    // Fetch exam details for each student
     const studentsWithExams = await Promise.all(
       students.map(async (student) => {
-        const exam = await Exam.findOne({ 
-          studentId: student._id, 
-          examType: 'student-specific' 
+        const exam = await Exam.findOne({
+          studentId: student._id,
+          examType: 'student-specific'
         }).select('title date time duration');
-        
+
         return {
           ...student,
           exam: exam ? {
@@ -394,7 +225,6 @@ const getAllStudents = async (req, res) => {
   }
 };
 
-// Get all exams
 const getAllExams = async (req, res) => {
   try {
     const exams = await Exam.find()
@@ -520,13 +350,11 @@ const createExam = async (req, res) => {
   }
 };
 
-// Updated updateExam function with timer rescheduling
 const updateExam = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, program, date, time, duration, status, studentId, examType } = req.body;
 
-    // Find exam
     const exam = await Exam.findById(id);
     if (!exam) {
       return res.status(404).json({
@@ -534,41 +362,6 @@ const updateExam = async (req, res) => {
         message: "Exam not found",
       });
     }
-
-    // Validate required fields
-    if (!title || !program || !date || !time || !duration) {
-      return res.status(400).json({
-        success: false,
-        message: "Title, program, date, time, and duration are required",
-      });
-    }
-
-    const validPrograms = ["BCSIT", "BCA", "BBA"];
-    if (!validPrograms.includes(program)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid program. Must be one of: " + validPrograms.join(", "),
-      });
-    }
-
-    if (duration <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Duration must be greater than 0",
-      });
-    }
-
-    // 🎯 FIXED: Validate date and time format
-    const moment = require('moment');
-    const examDateTime = moment(`${date} ${time}`, 'YYYY-MM-DD HH:mm');
-
-    if (!examDateTime.isValid()) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid date or time format. Use YYYY-MM-DD for date and HH:mm for time",
-      });
-    }
-
     if (studentId) {
       const student = await User.findById(studentId);
       if (!student || student.role !== "student") {
@@ -579,44 +372,26 @@ const updateExam = async (req, res) => {
       }
     }
 
-    // Validate status if provided
-    const validStatuses = ["scheduled", "running", "completed", "cancelled"];
-    if (status && !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status. Must be one of: " + validStatuses.join(", "),
-      });
-    }
-
-    // 🎯 Cancel existing timers before updating
     const wasActive = ['scheduled', 'running'].includes(exam.status);
     if (wasActive) {
       const cancelled = examScheduler.cancelExamTimers(id);
-      if (cancelled) {
-        console.log(`🚫 Cancelled existing timers for exam: "${exam.title}"`);
-      }
     }
 
-    // Update fields
     exam.title = title || exam.title;
     exam.program = program || exam.program;
-    exam.date = date || exam.date; // Store as string
-    exam.time = time || exam.time; // Store as string
+    exam.date = date || exam.date;
+    exam.time = time || exam.time;
     exam.duration = parseInt(duration) || exam.duration;
     exam.status = status || exam.status;
     exam.studentId = studentId || exam.studentId;
     exam.examType = examType || (studentId ? "student-specific" : "general");
 
     await exam.save();
-
-    // 🎯 Reschedule if exam is now scheduled
     if (exam.status === 'scheduled') {
       examScheduler.scheduleExam(exam);
-      console.log(`⏰ Rescheduled auto-start and auto-completion for exam: "${exam.title}"`);
     } else if (wasActive && !['scheduled', 'running'].includes(exam.status)) {
       console.log(`📝 Exam "${exam.title}" is no longer active, timers removed`);
     }
-
     const populatedExam = await Exam.findById(exam._id)
       .populate("studentId", "name username email program");
 
@@ -635,12 +410,10 @@ const updateExam = async (req, res) => {
   }
 };
 
-// Delete exam function with timer cleanup
 const deleteExam = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find exam
     const exam = await Exam.findById(id);
     if (!exam) {
       return res.status(404).json({
@@ -649,21 +422,14 @@ const deleteExam = async (req, res) => {
       });
     }
 
-    // Cancel timers if exam was active
     if (['scheduled', 'running'].includes(exam.status)) {
       const cancelled = examScheduler.cancelExamTimers(id);
-      if (cancelled) {
-        console.log(`🚫 Cancelled timers for deleted exam: "${exam.title}"`);
-      }
     }
 
-    // Delete associated questions
     await Question.deleteMany({ examId: id });
 
-    // Delete associated answers
     await Answer.deleteMany({ examId: id });
 
-    // Delete exam
     await exam.deleteOne();
 
     res.status(200).json({
@@ -680,7 +446,6 @@ const deleteExam = async (req, res) => {
   }
 };
 
-// 🎯 NEW: Debug function to see active timers
 const getActiveTimers = async (req, res) => {
   try {
     const timers = examScheduler.getActiveTimers();
@@ -699,6 +464,7 @@ const getActiveTimers = async (req, res) => {
     });
   }
 };
+
 const notifyStudents = async (req, res) => {
   try {
     const { examId, program } = req.body;
@@ -708,13 +474,10 @@ const notifyStudents = async (req, res) => {
         message: 'Exam ID and program are required',
       });
     }
-
     // In a real implementation, this could:
     // - Send WebSocket messages to students in the program
     // - Update a notification flag in the database
     // - Trigger an email or in-app notification
-    console.log(`Notifying students in program ${program} for exam ${examId}`);
-
     res.status(200).json({
       success: true,
       message: 'Students notified successfully',
@@ -728,12 +491,11 @@ const notifyStudents = async (req, res) => {
     });
   }
 };
-// Create a new question
+
 const createQuestion = async (req, res) => {
   try {
     const { question, options, correctAnswer, category, program } = req.body;
 
-    // Validate required fields (examId is NOT required)
     if (!question || !options || !Array.isArray(options) || options.length !== 4 || !correctAnswer) {
       return res.status(400).json({
         success: false,
@@ -781,13 +543,11 @@ const createQuestion = async (req, res) => {
   }
 };
 
-// Update a question
 const updateQuestion = async (req, res) => {
   try {
     const { questionId } = req.params;
     const { question, options, correctAnswer, category } = req.body;
 
-    // Find question
     const existingQuestion = await Question.findById(questionId);
     if (!existingQuestion) {
       return res.status(404).json({
@@ -795,8 +555,6 @@ const updateQuestion = async (req, res) => {
         message: "Question not found",
       });
     }
-
-    // Validate options if provided
     if (options && (!Array.isArray(options) || options.length !== 4)) {
       return res.status(400).json({
         success: false,
@@ -804,7 +562,6 @@ const updateQuestion = async (req, res) => {
       });
     }
 
-    // Verify correctAnswer is one of the options if both are provided
     if (options && correctAnswer && !options.includes(correctAnswer)) {
       return res.status(400).json({
         success: false,
@@ -812,7 +569,6 @@ const updateQuestion = async (req, res) => {
       });
     }
 
-    // Update fields
     existingQuestion.question = question || existingQuestion.question;
     existingQuestion.options = options || existingQuestion.options;
     existingQuestion.correctAnswer = correctAnswer || existingQuestion.correctAnswer;
@@ -835,12 +591,10 @@ const updateQuestion = async (req, res) => {
   }
 };
 
-// Delete a question
 const deleteQuestion = async (req, res) => {
   try {
     const { questionId } = req.params;
 
-    // Find question
     const question = await Question.findById(questionId);
     if (!question) {
       return res.status(404).json({
@@ -848,14 +602,11 @@ const deleteQuestion = async (req, res) => {
         message: "Question not found",
       });
     }
-
-    // Remove question from exam
     await Exam.updateOne(
       { _id: question.examId },
       { $pull: { questions: questionId } }
     );
 
-    // Delete question
     await question.deleteOne();
 
     res.status(200).json({
@@ -872,12 +623,9 @@ const deleteQuestion = async (req, res) => {
   }
 };
 
-// Get exam questions
 const getExamQuestions = async (req, res) => {
   try {
     const { examId } = req.params;
-
-    // Verify exam exists
     const exam = await Exam.findById(examId);
     if (!exam) {
       return res.status(404).json({
@@ -885,11 +633,7 @@ const getExamQuestions = async (req, res) => {
         message: "Exam not found",
       });
     }
-
-    // Get ALL questions since they're the same for everyone
     const questions = await Question.find({});
-
-    console.log(`📊 Returning ${questions.length} questions for exam: ${exam.title}`);
 
     res.status(200).json({
       success: true,
@@ -908,27 +652,23 @@ const getExamQuestions = async (req, res) => {
 };
 
 const getquestionbyId = async (req, res) => {
-try {
+  try {
     const { questionIds } = req.body;
-    
+
     const questions = await Question.find({
       _id: { $in: questionIds }
     }).select('question options correctAnswer category');
-    
+
     res.json(questions);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-
-// Add questions to an exam
 const addQuestionsToExam = async (req, res) => {
   try {
     const { examId } = req.params;
     const questions = req.body;
-
-    // Validate examId
     const exam = await Exam.findById(examId);
     if (!exam) {
       return res.status(404).json({
@@ -937,7 +677,6 @@ const addQuestionsToExam = async (req, res) => {
       });
     }
 
-    // Validate questions array
     if (!Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({
         success: false,
@@ -945,7 +684,6 @@ const addQuestionsToExam = async (req, res) => {
       });
     }
 
-    // Validate each question
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer) {
@@ -962,7 +700,6 @@ const addQuestionsToExam = async (req, res) => {
       }
     }
 
-    // Create questions
     const createdQuestions = [];
     for (const questionData of questions) {
       const question = new Question({
@@ -976,11 +713,9 @@ const addQuestionsToExam = async (req, res) => {
       createdQuestions.push(question._id);
     }
 
-    // Update exam with question IDs
     exam.questions = [...exam.questions, ...createdQuestions];
     await exam.save();
 
-    // Return updated exam with populated questions
     const updatedExam = await Exam.findById(examId)
       .populate("questions")
       .populate("studentId", "name username email program");
@@ -1000,7 +735,6 @@ const addQuestionsToExam = async (req, res) => {
   }
 };
 
-// Get all results
 const getAllResults = async (req, res) => {
   try {
     const results = await Answer.find()
@@ -1023,43 +757,9 @@ const getAllResults = async (req, res) => {
   }
 };
 
-// Download result PDF (placeholder)
-const downloadResultPDF = async (req, res) => {
-  try {
-    const { resultId } = req.params;
-
-    const result = await Answer.findById(resultId)
-      .populate("studentId", "name username email program")
-      .populate("examId", "title program date time");
-
-    if (!result) {
-      return res.status(404).json({
-        success: false,
-        message: "Result not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "PDF generation not implemented yet",
-      result,
-    });
-  } catch (error) {
-    console.error("Error downloading result PDF:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to download result PDF",
-      error: error.message,
-    });
-  }
-};
-
-
 const sendCongratulationEmail = async (req, res) => {
   try {
     const { resultId } = req.params;
-
-    // Fetch result with populated student and exam details
     const result = await Answer.findById(resultId)
       .populate('studentId', 'name username email phone program')
       .populate('examId', 'title program date time');
@@ -1079,7 +779,6 @@ const sendCongratulationEmail = async (req, res) => {
       });
     }
 
-    // Check if congratulation was already sent
     if (result.congratulationSent) {
       return res.status(400).json({
         success: false,
@@ -1087,7 +786,6 @@ const sendCongratulationEmail = async (req, res) => {
       });
     }
 
-    // --- SMS Content ---
     const smsText = `Dear ${result.studentId?.name || 'Student'},
 Congratulations on your ${result.examId?.title} exam!
 
@@ -1099,7 +797,6 @@ Program: ${result.studentId?.program || 'N/A'}
 Thank you,
 CCT Team`;
 
-    // --- Plain Text Version (Fallback) ---
     const plainText = `
 Dear ${result.studentId?.name || 'Student'},
 
@@ -1119,8 +816,6 @@ Best regards,
 Examination System Team
 Crimson College Of Technology
     `.trim();
-
-    // --- HTML Email Content ---
     const resultStatusColor = result.result === 'pass' ? '#228B22' : '#DC143C';
     const resultStatusBg = result.result === 'pass' ? '#d4edda' : '#f8d7da';
     const loginUrl = process.env.CLIENT_URL || 'https://your-exam-system.com/login';
@@ -1178,7 +873,6 @@ Crimson College Of Technology
       `,
     });
 
-    // --- Send Email ---
     const subject = `Congratulations on Your ${result.examId?.title} Results!`;
 
     try {
@@ -1186,19 +880,14 @@ Crimson College Of Technology
     } catch (emailError) {
       console.error('Failed to send congratulation email:', emailError);
     }
-
-    // --- Send SMS ---
     const studentPhone = result.studentId?.phone;
     if (studentPhone) {
       try {
         await sendSMS(studentPhone, smsText);
-        console.log('Congratulation SMS sent successfully to:', studentPhone);
       } catch (smsError) {
         console.error('Failed to send congratulation SMS:', smsError);
       }
     }
-
-    // Mark as sent
     result.congratulationSent = true;
     await result.save();
 
@@ -1217,22 +906,14 @@ Crimson College Of Technology
   }
 };
 
-
 const updateStudent = async (req, res) => {
   const { id } = req.params;
   const { name, username, email, phone, program, dob, examTitle, examDate, examTime, examDuration, password } = req.body;
 
-  console.log(`Updating student with ID: ${id}`); // Debug log
-  console.log('Received payload:', req.body); // Debug log
-
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    console.log(`Invalid ObjectId: ${id}`);
     return res.status(400).json({ success: false, message: 'Invalid student ID format' });
   }
-
   try {
-    // Validate required fields
     if (!name?.trim()) {
       return res.status(400).json({ success: false, message: 'Name is required' });
     }
@@ -1242,44 +923,20 @@ const updateStudent = async (req, res) => {
     if (!email?.trim()) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
-
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
-
-    // Validate phone if provided
     if (phone?.trim()) {
       const phoneRegex = /^\+?\d{10,15}$/;
       if (!phoneRegex.test(phone.trim())) {
         return res.status(400).json({ success: false, message: 'Invalid phone number' });
       }
     }
-
-    // Validate program if provided
     if (program && !['BCSIT', 'BCA', 'BBA'].includes(program)) {
       return res.status(400).json({ success: false, message: 'Invalid program. Must be BCSIT, BCA, or BBA' });
     }
 
-    // Validate dob if provided
-    if (dob) {
-      const dobDate = new Date(dob);
-      const now = new Date();
-      const minAge = new Date(now.getFullYear() - 16, now.getMonth(), now.getDate());
-
-      if (isNaN(dobDate.getTime())) {
-        return res.status(400).json({ success: false, message: 'Invalid date of birth' });
-      }
-      if (dobDate > minAge) {
-        return res.status(400).json({ success: false, message: 'Student must be at least 16 years old' });
-      }
-      if (dobDate > now) {
-        return res.status(400).json({ success: false, message: 'Date of birth cannot be in the future' });
-      }
-    }
-
-    // Prepare user update data
     const updateData = {
       name: name.trim(),
       username: username.trim(),
@@ -1289,22 +946,15 @@ const updateStudent = async (req, res) => {
       ...(program && { program }),
       ...(password?.trim() && { password: password.trim() }),
     };
-
-    console.log('Attempting to update user with ID:', id); // Debug log
-    console.log('Update data:', updateData); // Debug log
-
-    // Update user
     const updatedUser = await User.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     }).select('-password');
 
     if (!updatedUser) {
-      console.log(`Student not found for ID: ${id}`); // Debug log
       return res.status(404).json({ success: false, message: `Student not found with ID: ${id}` });
     }
 
-    // Handle exam details if provided
     const hasExamDetails = examTitle?.trim() || examDate || examTime || examDuration;
     if (hasExamDetails) {
       if (!examTitle?.trim() || !examDate || !examTime || !examDuration) {
@@ -1334,8 +984,6 @@ const updateStudent = async (req, res) => {
       if (examDuration <= 0) {
         return res.status(400).json({ success: false, message: 'Exam duration must be greater than 0' });
       }
-
-      console.log('Updating/creating exam for student ID:', id); // Debug log
       await Exam.findOneAndUpdate(
         { studentId: id, examType: 'student-specific' },
         {
@@ -1367,16 +1015,12 @@ const updateStudent = async (req, res) => {
   }
 };
 
-// Delete a student
 const deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Delete associated exams and answers
     await Exam.deleteMany({ assignedTo: id });
     await Answer.deleteMany({ studentId: id });
-
-    // Delete the student
     const deletedStudent = await User.findByIdAndDelete(id);
 
     if (!deletedStudent) {
@@ -1391,7 +1035,6 @@ const deleteStudent = async (req, res) => {
       message: "Student and associated data deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting student:", error);
     res.status(500).json({
       success: false,
       message: "Failed to delete student",
@@ -1399,26 +1042,22 @@ const deleteStudent = async (req, res) => {
     });
   }
 };
+
 const getResultsByProgram = async (req, res) => {
   try {
-    // Get program from query params: ?program=BCSIT
     const { program } = req.query;
 
-    // Build filter
     const filter = {};
     if (program && program !== 'all') {
       filter['studentId.program'] = program;
     }
 
-    // Fetch results with populated data
     const results = await Answer.find(filter)
       .populate('studentId', 'name email program username')
       .populate('examId', 'title program date')
       .select('studentId examId score totalQuestions percentage status validationDetails congratulationSent createdAt')
-      .sort({ score: -1 }) // Highest score first
-      .lean(); // Optional: easier to modify (like adding rank)
-
-    // Add rank based on score order
+      .sort({ score: -1 })
+      .lean();
     const resultsWithRank = results.map((result, index) => ({
       ...result,
       rank: index + 1,
@@ -1426,7 +1065,6 @@ const getResultsByProgram = async (req, res) => {
 
     res.status(200).json(resultsWithRank);
   } catch (error) {
-    console.error('Error fetching results:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch results',
@@ -1446,7 +1084,6 @@ const getquestionByProgram = async (req, res) => {
     const questions = await Question.find(filter).sort({ category: 1, createdAt: -1 });
     res.json(questions);
   } catch (error) {
-    console.error('Error fetching questions by program:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -1467,7 +1104,6 @@ module.exports = {
   getExamQuestions,
   addQuestionsToExam,
   getAllResults,
-  downloadResultPDF,
   sendCongratulationEmail,
   updateStudent,
   deleteStudent,

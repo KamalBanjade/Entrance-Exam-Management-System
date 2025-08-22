@@ -22,7 +22,7 @@ export const DashboardLayout: React.FC = () => {
       >
         <header className="bg-white shadow-sm border-b border-red-300 z-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex justify-between items-center py-4 mb-3">
               <h1 className="text-xl font-bold text-[#333333]">
                 <span className="text-[#DC143C]">Admin</span>{' '}
                 <span className="text-green-600">Dashboard</span>

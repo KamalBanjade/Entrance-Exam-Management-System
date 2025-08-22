@@ -1,4 +1,4 @@
-// utils/emailTemplate.js
+
 const generateEmailTemplate = ({ title, content, footer }) => `
 <!DOCTYPE html>
 <html lang="en">

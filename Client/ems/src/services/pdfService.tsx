@@ -2,8 +2,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { Answer } from '../types';
 
-// Key changes to accommodate 5 questions per page:
-
 export const generateResultPDFWithQuestions = async (result: Answer, questions: any[] = []): Promise<void> => {
     try {
         // Initialize PDF
@@ -11,8 +9,6 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
         const imgWidth = 190;
         let pageNumber = 1;
 
-
-        // Step 1: Generate Summary Page
         const summaryDiv = document.createElement('div');
         summaryDiv.style.position = 'absolute';
         summaryDiv.style.left = '-9999px';
@@ -120,22 +116,17 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
 
         document.body.removeChild(summaryDiv);
 
-        // Add summary page to PDF
         const summaryImgData = summaryCanvas.toDataURL('image/jpeg', 0.9);
         const summaryImgHeight = (summaryCanvas.height * imgWidth) / summaryCanvas.width;
         pdf.addImage(summaryImgData, 'JPEG', 10, 10, imgWidth, summaryImgHeight);
 
-        // Step 2: Generate Questions Pages (5 questions per page)
         if (result.validationDetails && result.validationDetails.length > 0) {
             const questionsPerPage = 5;
-            // const totalPages = Math.ceil(result.validationDetails.length / questionsPerPage);
 
             for (let i = 0; i < result.validationDetails.length; i += questionsPerPage) {
                 pageNumber++;
                 const pageQuestions = result.validationDetails.slice(i, i + questionsPerPage);
                 const currentPageNumber = Math.floor(i / questionsPerPage) + 2;
-
-                // Create questions page with increased height
                 const questionsDiv = document.createElement('div');
                 questionsDiv.style.position = 'absolute';
                 questionsDiv.style.left = '-9999px';
@@ -147,9 +138,8 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
 
                 let questionsHTML = `
           <div style="border: 2px solid #DC143C; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); min-height: 1125px; position: relative;">
-        `; // CHANGED: Increased min-height from 1000px to 1200px
+        `; 
 
-                // Add header only on first questions page
                 if (i === 0) {
                     questionsHTML += `
             <!-- Answer Breakdown Header -->
@@ -167,9 +157,8 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
           `;
                 }
 
-                questionsHTML += `<div style="margin-top: 8px;">`; // CHANGED: Reduced margin from 12px to 8px
+                questionsHTML += `<div style="margin-top: 8px;">`; 
 
-                // Add questions to this page with optimized spacing
                 pageQuestions.forEach((detail, pageIndex) => {
                     const globalIndex = i + pageIndex;
                     const question = questions.find(q => q._id === detail.questionId) || {};
@@ -266,7 +255,6 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
           </div>
         `;
 
-                // Rest of the canvas generation code remains the same...
                 questionsDiv.innerHTML = questionsHTML;
                 document.body.appendChild(questionsDiv);
 
@@ -278,21 +266,17 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
                     allowTaint: false,
                     backgroundColor: '#ffffff',
                     logging: false,
-                    height: 1200, // CHANGED: Increased canvas height to match container
+                    height: 1200,
                 });
 
                 document.body.removeChild(questionsDiv);
-                // Add new page and draw image only once
                 pdf.addPage();
                 const questionsImgData = questionsCanvas.toDataURL('image/jpeg', 0.9);
                 const questionsImgHeight = (questionsCanvas.height * imgWidth) / questionsCanvas.width;
-
-                // Draw image centered vertically with margin
                 pdf.addImage(questionsImgData, 'JPEG', 10, 10, imgWidth, questionsImgHeight);
             }
         }
 
-        // Save the PDF
         const fileName = `${result.studentId?.name?.replace(/\s+/g, '_') || 'result'}_detailed_${new Date().toISOString().split('T')[0]}.pdf`;
         pdf.save(fileName);
 
@@ -302,17 +286,13 @@ export const generateResultPDFWithQuestions = async (result: Answer, questions: 
     }
 };
 
-// Helper function to fetch questions if needed
 export const fetchQuestionsForResult = async (result: Answer, apiService: any): Promise<any[]> => {
     try {
-        // Extract unique question IDs from validation details
         const questionIds = result.validationDetails?.map(detail => detail.questionId).filter(Boolean) || [];
 
         if (questionIds.length === 0) {
             return [];
         }
-
-        // Fetch questions using the API service
         const questions = await apiService.getQuestionsByIds(questionIds);
         return questions;
 

@@ -1,23 +1,21 @@
-
-
 export type Exam = {
   _id: string;
   title: string;
-  studentId?: string | User; // Allow string or User object
+  studentId?: string | User;
   assignedTo?: string;
   program: string;
   date: string;
   time: string;
-  duration: string | number; // Keep as string | number to match API response
+  duration: string | number;
   questions: string[];
-  status: 'pending' | 'scheduled' | 'running' | 'completed' | 'cancelled'; // Add 'running'
+  status: 'pending' | 'scheduled' | 'running' | 'completed' | 'cancelled';
   displayStatus: 'upcoming' | 'available' | 'completed' | 'expired';
   examType?: 'student-specific' | 'general';
   createdAt?: string;
   updatedAt?: string;
   canStart?: boolean;
   questionsCount?: number;
-  startedAt?: Date; // Add startedAt field
+  startedAt?: Date;
 };
 
 export interface NewExam {
@@ -42,14 +40,14 @@ export type Question = {
   program:string;
 };
 
-// types.ts
 export interface NewQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
   category?: string;
-  program: string;           // ← Add this line
+  program: string;
 }
+
 export interface UpdateQuestionData {
   question?: string;
   options?: string[];
@@ -65,12 +63,12 @@ export interface Answer {
   score: number;
   totalQuestions: number;
   percentage: number;
-  result: 'pass' | 'fail' | null; // Add result field
-  status: 'not-started' | 'in-progress' | 'submitted'; // Update status
-  startedAt?: string; // Optional, as it may not always be set
-  submittedAt?: string; // Already present, keep as string
+  result: 'pass' | 'fail' | null;
+  status: 'not-started' | 'in-progress' | 'submitted';
+  startedAt?: string;
+  submittedAt?: string;
   rank?: number;
-    sending?: boolean;
+  sending?: boolean;
   congratulationSent?: boolean;
   validationDetails?: {
     questionId: string;
@@ -79,7 +77,7 @@ export interface Answer {
     correctAnswer: string;
     isCorrect: boolean;
   }[];
-  generatedQuestions?: string[]; // ObjectId refs as strings in TypeScript
+  generatedQuestions?: string[];
 }
 
 export interface StudentData {
@@ -96,11 +94,12 @@ export interface StudentData {
   examDuration: number;
   role: 'student';
 }
+
 export interface ApiResponse<T> {
   success?: boolean;
   message?: string;
-  data?: T;           // ← Make optional
-  exams?: T;          // ← Make optional
+  data?: T;
+  exams?: T;
   total?: number;
   page?: number;
   profile?:string;
@@ -114,7 +113,7 @@ export interface User {
   dob?: string;
   email: string;
   phone: string;
-  program: "BCSIT" | "BCA" | "BBA" | null; // Note: You have "BSCIT" here, but backend uses "BCSIT". Ensure consistency.
+  program: "BCSIT" | "BCA" | "BBA" | null;
   createdAt: string;
   exam?: {
     examTitle: string;
@@ -124,7 +123,6 @@ export interface User {
   };
 }
 
-// Assuming newStudent has a similar type
 export interface NewStudent {
   name: string;
   username: string;

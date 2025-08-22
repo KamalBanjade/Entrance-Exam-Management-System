@@ -302,21 +302,6 @@ export const apiService = {
     }
   },
 
-  // 🔄 Reset exam
-  resetExam: async (
-    examId: string
-  ): Promise<{
-    success: boolean;
-    message: string;
-  }> => {
-    try {
-      const response = await api.post(`/student/reset-exam/${examId}`);
-      return response.data;
-    } catch (error: any) {
-      console.error("Error resetting exam:", error);
-      throw error.response?.data || { message: error.message };
-    }
-  },
 
   // 📊 Get student results
   getResults: async (): Promise<Answer[]> => {

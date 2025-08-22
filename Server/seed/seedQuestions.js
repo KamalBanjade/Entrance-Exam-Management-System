@@ -505,10 +505,10 @@ const seedQuestions = async () => {
         program: "BBA"
       },
       {
-        question: "Identify the missing figure in the pattern: (figure-based)",
-        options: ["1", "2", "3", "4"],
-        correctAnswer: "1",
-        category: "Logical Reasoning",
+        "question": "Tree : Forest :: Star : ?",
+        "options": ["Moon", "Sky", "Planet", "Cloud"],
+        "correctAnswer": "Sky",
+        "category": "Logical Reasoning",
         program: "BBA"
       },
       {
@@ -1232,10 +1232,10 @@ const seedQuestions = async () => {
         program: "BCSIT"
       },
       {
-        question: "Identify the missing figure in the pattern: (figure-based)",
-        options: ["1", "2", "3", "4"],
-        correctAnswer: "1",
-        category: "Logical Reasoning",
+        "question": "Tree : Forest :: Star : ?",
+        "options": ["Moon", "Sky", "Planet", "Cloud"],
+        "correctAnswer": "Sky",
+        "category": "Logical Reasoning",
         program: "BCSIT"
       },
       {

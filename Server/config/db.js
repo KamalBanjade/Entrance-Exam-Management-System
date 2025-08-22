@@ -1,19 +1,18 @@
-const mongoose = require("mongoose");
-const seedQuestions = require("../seed/seedQuestions"); // Adjust path if needed
+const mongoose = require('mongoose');
+const seedAdmin = require('../seed/seedAdmin');
+const seedQuestions = require('../seed/seedQuestions');
 
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB Connected");
+    console.log('MongoDB Connected');
 
-    // Run seeding only in development
-    if (process.env.NODE_ENV === "development") {
+    if (process.env.NODE_ENV === 'development' || process.env.SEED_DATA === 'true') {
+      await seedAdmin();
       await seedQuestions();
-    } else {
-      
     }
   } catch (err) {
-    console.error("❌ MongoDB Error:", err.message);
+    console.error('MongoDB Error:', err.message);
     process.exit(1);
   }
 };

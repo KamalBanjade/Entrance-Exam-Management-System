@@ -41,7 +41,6 @@ const examSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Question',
   }],
-  // Add exam type to distinguish between the two
   examType: {
     type: String,
     enum: ['student-specific', 'general'],

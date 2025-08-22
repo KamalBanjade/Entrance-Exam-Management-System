@@ -13,7 +13,7 @@ const StudentDashboard: React.FC = () => {
   const location = useLocation();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false); // Controls sidebar width
+  const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
   const fetchProfile = async () => {
@@ -76,20 +76,6 @@ const StudentDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [navigate]);
 
-  const handleResetExam = async (exam: Exam) => {
-    if (!window.confirm('Reset exam? All progress will be lost.')) return;
-    try {
-      const response = await apiService.resetExam(exam._id);
-      if (response.success) {
-        toast.success('Exam reset!');
-        fetchExams();
-      } else {
-        toast.error(response.message);
-      }
-    } catch (error: any) {
-      toast.error(error.message);
-    }
-  };
 
   const handleStartExam = async (exam: Exam) => {
     if (!exam.canStart) {
@@ -137,8 +123,6 @@ const StudentDashboard: React.FC = () => {
         collapsed={collapsed}
         setCollapsed={setCollapsed}
       />
-
-      {/* Main Content */}
       <div
         className={`
           flex-1 flex flex-col
@@ -147,7 +131,7 @@ const StudentDashboard: React.FC = () => {
         `}
       >
         <header className="bg-white shadow-sm border-b border-red-400 z-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 m-1">
             <div className="flex justify-between items-center py-4">
               <div className="flex items-center mb-2">
                 <h1 className="text-xl font-bold text-[#333333]">
@@ -289,17 +273,7 @@ const StudentDashboard: React.FC = () => {
                                     Start Exam
                                   </button>
                                 ) : (
-                                  <div className="flex gap-1.5">
-                                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">Not yet</span>
-                                    {exam.displayStatus === 'available' && (
-                                      <button
-                                        onClick={() => handleResetExam(exam)}
-                                        className="px-3 py-1 bg-[#DC143C] hover:bg-[#c41234] text-white rounded-lg text-xs"
-                                      >
-                                        Reset
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs">Not yet</span>
                                 )}
                               </td>
                             </tr>
@@ -309,20 +283,30 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="mt-8 bg-gradient-to-r from-[#DC143C] to-[#B2102F] rounded-2xl shadow-lg overflow-hidden">
+                <div className="mt-8 bg-gradient-to-r from-[#DC143C] to-[#B2102F] rounded-2xl shadow-xl overflow-hidden">
                   <div className="p-6 text-white">
-                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <BookOpen size={20} /> Exam Instructions
+                    <h2 className="text-lg font-semibold mb-5 flex items-center gap-2">
+                      <div className="bg-white/20 rounded-full p-1.5">
+                        <BookOpen size={18} />
+                      </div>
+                      Exam Instructions
                     </h2>
-                    <ul className="space-y-2 list-disc pl-5 text-sm leading-relaxed">
-                      <li>Click "Start Exam" only during the scheduled time window</li>
-                      <li>Once started, the timer begins and cannot be paused</li>
-                      <li>The exam will auto-submit when time expires</li>
-                      <li>Ensure a stable internet connection throughout</li>
-                      <li>Exams cannot be started after their time window expires</li>
-                      <li>Use "Reset Exam" only if you need to restart a partially completed exam</li>
-                      <li>Contact admin if you face any issues</li>
-                    </ul>
+                    <div className="space-y-3">
+                      {[
+                        "Click 'Start Exam' only during the scheduled time window",
+                        "Once started, the timer begins and cannot be paused",
+                        "The exam will auto-submit when time expires",
+                        "Ensure a stable internet connection throughout",
+                        "Exams cannot be started after their time window expires",
+                        "Exams will start exactly on the scheduled time",
+                        "Contact admin if you face any issues"
+                      ].map((instruction, index) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/15 transition-colors">
+                          <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                          <p className="text-sm leading-relaxed text-white/95">{instruction}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>

@@ -11,14 +11,12 @@ exports.authMiddleware = (role) => {
       if (role && decoded.role !== role) {
         return res.status(403).json({ msg: "Access denied" });
       }
-
-      // ✅ Fetch full user data from database
       const user = await User.findById(decoded.id).select('-password').lean();
       if (!user) {
         return res.status(401).json({ msg: "User not found" });
       }
 
-      req.user = user; // Now has _id, program, etc.
+      req.user = user;
       next();
     } catch (err) {
       console.error('Auth middleware error:', err);

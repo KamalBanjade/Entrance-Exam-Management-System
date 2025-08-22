@@ -11,6 +11,7 @@ export const ResultsPage: React.FC = () => {
   const [selectedResult, setSelectedResult] = useState<Answer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingResult, setDownloadingResult] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -50,18 +51,55 @@ export const ResultsPage: React.FC = () => {
 
   const handleDownloadPDF = async (result: Answer) => {
     try {
-      // Show loading toast
-      toast.info('📄 Generating simple report...');
+      setDownloadingResult(result._id);
 
-      // Fetch full question details (text, options) using the exported service function
+      // Progress messages with delays
+      const progressMessages = [
+        { message: '📄 Generating detailed report...', delay: 0 },
+        { message: '🔍 Fetching question details...', delay: 2000 },
+        { message: '📊 Processing exam results...', delay: 4000 },
+        { message: '🎨 Formatting PDF document...', delay: 6000 },
+        { message: '📑 Finalizing your report...', delay: 8000 },
+        { message: '⏳ Almost ready...', delay: 10000 }
+      ];
+
+      // Show progressive loading messages
+      let currentToastId: any = null;
+      const messageInterval = () => {
+        progressMessages.forEach(({ message, delay }) => {
+          setTimeout(() => {
+            if (downloadingResult) { // Only show if still downloading
+              if (currentToastId) {
+                toast.dismiss(currentToastId);
+              }
+              currentToastId = toast.info(message, {
+                autoClose: false,
+                closeButton: false
+              });
+            }
+          }, delay);
+        });
+      };
+
+      messageInterval();
+
+      // Fetch full question details
       const questions = await fetchQuestionsForResult(result, apiService);
 
-      // Generate the simple text-based PDF (fast and reliable)
+      // Generate the PDF
       await generateResultPDFWithQuestions(result, questions);
 
-      // Success
+      // Clear loading state and messages
+      setDownloadingResult(null);
+      if (currentToastId) {
+        toast.dismiss(currentToastId);
+      }
+
+      // Success message
       toast.success('✅ PDF downloaded successfully!');
+
     } catch (error) {
+      setDownloadingResult(null);
       console.error('Error generating PDF:', error);
       toast.error('❌ Failed to generate PDF. Please try again.');
     }
@@ -430,9 +468,22 @@ export const ResultsPage: React.FC = () => {
                 <div className="mt-5">
                   <button
                     onClick={() => handleDownloadPDF(selectedResult)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#DC143C] hover:bg-[#c41234] text-white font-medium rounded-lg transition"
+                    disabled={downloadingResult === selectedResult._id}
+                    className={`flex items-center gap-2 px-5 py-2.5 font-medium rounded-lg transition ${downloadingResult === selectedResult._id
+                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                        : 'bg-[#DC143C] hover:bg-[#c41234] text-white'
+                      }`}
                   >
-                    <FiDownload size={16} /> Detailed Report
+                    {downloadingResult === selectedResult._id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <FiDownload size={16} /> Download as PDF
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

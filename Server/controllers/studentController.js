@@ -22,20 +22,15 @@ const getProfile = async (req, res) => {
 const startExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const studentId = req.user._id; // ✅ Use _id instead of id
+    const studentId = req.user._id; 
     const studentProgram = req.user.program;
 
-    console.log('🔍 startExam - Student ID:', studentId);
-    console.log('🔍 startExam - Student Program:', studentProgram);
-
-    // ✅ Validate studentId exists
     if (!studentId) {
       return res.status(400).json({
         success: false,
         message: 'Student ID not found in request',
       });
     }
-    // Validate examId format
     if (!examId || !examId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -43,7 +38,6 @@ const startExam = async (req, res) => {
       });
     }
 
-    // Fetch exam (lean for faster read)
     const exam = await Exam.findById(examId).lean();
     if (!exam) {
       return res.status(404).json({
@@ -52,15 +46,12 @@ const startExam = async (req, res) => {
       });
     }
 
-    // Program check
     if (exam.program && exam.program !== studentProgram) {
       return res.status(403).json({
         success: false,
         message: 'This exam is not for your program',
       });
     }
-
-    // Parse date/time
     const examDate = moment(exam.date).format('YYYY-MM-DD');
     const examTime = exam.time instanceof Date ? moment(exam.time).format('HH:mm') : exam.time;
     const duration = parseInt(exam.duration, 10);
@@ -192,25 +183,20 @@ const getExams = async (req, res) => {
     const studentId = req.user._id;
     const studentProgram = req.user.program;
 
-    console.log('🔍 Student ID:', studentId);
-    console.log('🔍 Student Program:', studentProgram);
-
-    // Get submitted exam IDs
     const submittedExamIds = new Set(
       (await Answer.distinct('examId', { studentId, status: 'submitted' })).map(String)
     );
 
-    // ✅ FIXED: Only show exams that match student's criteria
     const exams = await Exam.find({
       $and: [
         {
           $or: [
-            { studentId: studentId }, // Student-specific exams
-            { assignedTo: studentId }, // Assigned to this student
+            { studentId: studentId }, 
+            { assignedTo: studentId }, 
             { 
               $and: [
-                { examType: 'general' }, // General exams
-                { program: studentProgram } // For student's program
+                { examType: 'general' }, 
+                { program: studentProgram } 
               ]
             }
           ]
@@ -379,7 +365,6 @@ const submitExam = async (req, res) => {
       });
     }
 
-    // Validate time
     const startTime = new Date(answerDoc.startedAt);
     const now = new Date();
     const diffMinutes = Math.floor((now - startTime) / (1000 * 60));
@@ -390,7 +375,6 @@ const submitExam = async (req, res) => {
       });
     }
 
-    // Fetch questions
     const questionIds = answerDoc.generatedQuestions || exam.questions;
     const questions = await Question.find({ _id: { $in: questionIds } }).lean();
     if (questions.length === 0) {
@@ -416,7 +400,7 @@ const submitExam = async (req, res) => {
       const isCorrect = answer.selected === question.correctAnswer;
       validationDetails.push({
         questionId: question._id.toString(),
-        questionText: question.question, // Add question text from Question model
+        questionText: question.question,
         selectedAnswer: answer.selected,
         correctAnswer: question.correctAnswer,
         isCorrect,
@@ -430,7 +414,6 @@ const submitExam = async (req, res) => {
       });
     }
 
-    // Calculate result
     const score = validationDetails.filter(d => d.isCorrect).length;
     const totalQuestions = questions.length;
     const percentage = Math.round((score / totalQuestions) * 100);
@@ -459,16 +442,12 @@ const submitExam = async (req, res) => {
       });
     }
 
-    // Log validationDetails for debugging
-    console.log('📋 Validation Details:', validationDetails);
-
     res.json({
       success: true,
       message: 'Exam submitted successfully!',
       result: { score, totalQuestions, percentage, status },
     });
   } catch (err) {
-    console.error('💥 Submission error:', err);
     res.status(500).json({
       success: false,
       message: 'Internal server error during exam submission',
@@ -476,7 +455,6 @@ const submitExam = async (req, res) => {
   }
 };
 
-// Get exam results
 const getResults = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -511,47 +489,7 @@ const getResults = async (req, res) => {
   }
 };
 
-// Reset exam
-const resetExam = async (req, res) => {
-  try {
-    const { examId } = req.params;
-    const studentId = req.user.id;
 
-    if (!examId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ success: false, message: 'Invalid exam ID format' });
-    }
-
-    const exam = await Exam.findById(examId).lean();
-    if (!exam) {
-      return res.status(404).json({ success: false, message: 'Exam not found' });
-    }
-
-    const existingAnswer = await Answer.findOne({ studentId, examId }).lean();
-    if (!existingAnswer) {
-      return res.status(400).json({
-        success: false,
-        message: 'No exam session found to reset',
-      });
-    }
-
-    if (existingAnswer.status === 'submitted') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot reset a submitted exam',
-      });
-    }
-
-    await Answer.deleteOne({ _id: existingAnswer._id });
-
-    res.json({
-      success: true,
-      message: 'Exam reset successfully. You can now start it again.',
-    });
-  } catch (err) {
-    console.error('Reset exam error:', err);
-    res.status(500).json({ success: false, message: err.message || 'Failed to reset exam' });
-  }
-};
 
 module.exports = {
   getExams,
@@ -559,6 +497,5 @@ module.exports = {
   getExamQuestions,
   submitExam,
   getResults,
-  resetExam,
   getProfile,
 };
