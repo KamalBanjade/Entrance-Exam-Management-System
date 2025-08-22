@@ -1,5 +1,13 @@
-import axios, { type AxiosResponse } from 'axios';
-import type { User, Exam, Question, Answer, StudentData, NewExam, ApiResponse } from '../types';
+import axios, { type AxiosResponse } from "axios";
+import type {
+  User,
+  Exam,
+  Question,
+  Answer,
+  StudentData,
+  NewExam,
+  ApiResponse,
+} from "../types";
 
 // === Response Interfaces ===
 interface DashboardStats {
@@ -57,18 +65,17 @@ interface CongratulationResponse {
   result: Answer;
 }
 
-
 // === Axios Instance ===
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: "http://localhost:5000/api",
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 // Add auth token to every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem("authToken");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -88,28 +95,138 @@ api.interceptors.response.use(
 // STUDENT API METHODS ✅ (Updated to match backend)
 // ========================
 export const apiService = {
+  adminLogin: async (
+    username: string,
+    password: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    token?: string;
+    user?: User;
+  }> => {
+    try {
+      const response = await api.post("/auth/admin-login", {
+        username,
+        password,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error in admin login:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
+
+  // 🔐 Check Student Credentials
+  checkStudentCredentials: async (
+    username: string,
+    password: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    user?: User;
+  }> => {
+    try {
+      const response = await api.post("/auth/check-student-credentials", {
+        username,
+        password,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error checking student credentials:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
+
+  // 🔐 Student Login (with DOB)
+  studentLogin: async (
+    username: string,
+    password: string,
+    dob: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    token?: string;
+    user?: User;
+  }> => {
+    try {
+      const response = await api.post("/auth/student-login", {
+        username,
+        password,
+        dob,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error in student login:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
+  forgotPassword: async (
+    email: string,
+    username: string,
+    dob: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    try {
+      const response = await api.post("/auth/forgot-password", {
+        email,
+        username,
+        dob,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error in forgot password:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
+  resetPassword: async (
+    token: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    try {
+      const response = await api.post("/auth/reset-password", {
+        token,
+        newPassword,
+        confirmPassword,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error in reset password:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
   // 📋 Get student exams
   getExams: async (): Promise<Exam[]> => {
     try {
-      const response: AxiosResponse<ApiResponse<Exam[]>> = await api.get('/student/exams');
+      const response: AxiosResponse<ApiResponse<Exam[]>> = await api.get(
+        "/student/exams"
+      );
       return response.data.exams || [];
     } catch (error: any) {
-      console.error('Error fetching exams:', error);
+      console.error("Error fetching exams:", error);
       throw error;
     }
   },
 
-getProfile: async (): Promise<User> => {
+  getProfile: async (): Promise<User> => {
     try {
-      const response: AxiosResponse<User> = await api.get('/student/profile');
+      const response: AxiosResponse<User> = await api.get("/student/profile");
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching profile:', error);
+      console.error("Error fetching profile:", error);
       throw error.response?.data || { message: error.message };
     }
   },
   // ▶️ Start an exam
-  startExam: async (examId: string): Promise<{
+  // Update the startExam method to return ExamData compatible object
+  startExam: async (
+    examId: string
+  ): Promise<{
     success: boolean;
     message: string;
     exam: {
@@ -123,57 +240,72 @@ getProfile: async (): Promise<User> => {
   }> => {
     try {
       const response = await api.post(`/student/start-exam/${examId}`);
-      return response.data;
+
+      // Transform the response to match ExamData
+      const examData = {
+        _id: response.data.exam._id,
+        title: response.data.exam.title,
+        duration: response.data.exam.duration,
+        program: response.data.exam.program,
+        startedAt: new Date(response.data.exam.startedAt),
+        questions: response.data.exam.questions || [],
+      };
+
+      return {
+        success: response.data.success,
+        message: response.data.message,
+        exam: examData,
+      };
     } catch (error: any) {
-      console.error('Error starting exam:', error);
+      console.error("Error starting exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
-  // ❓ Get exam questions after start
-  getExamQuestions: async (examId: string): Promise<{
+  getExamQuestions: async (
+    examId: string
+  ): Promise<{
     success: boolean;
-    exam: {
-      _id: string;
-      title: string;
-      duration: number;
-      startedAt: Date;
-      program: string;
-    };
-    questions: Question[];
     message: string;
+    exam: Exam;
+    questions: Question[];
   }> => {
     try {
       const response = await api.get(`/student/exam/${examId}/questions`);
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching exam questions:', error);
+      console.error("Error fetching exam questions:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
   // ✅ Submit exam
-  submitExam: async (payload: { examId: string; answers: { qId: string; selected: string }[] }): Promise<{
+  submitExam: async (payload: {
+    examId: string;
+    answers: { qId: string; selected: string }[];
+  }): Promise<{
     success: boolean;
     message: string;
     result: {
       score: number;
       totalQuestions: number;
       percentage: number;
-      status: 'pass' | 'fail';
+      status: "pass" | "fail";
     };
   }> => {
     try {
-      const response = await api.post('/student/submit-exam', payload);
+      const response = await api.post("/student/submit-exam", payload);
       return response.data;
     } catch (error: any) {
-      console.error('Error submitting exam:', error);
+      console.error("Error submitting exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
   // 🔄 Reset exam
-  resetExam: async (examId: string): Promise<{
+  resetExam: async (
+    examId: string
+  ): Promise<{
     success: boolean;
     message: string;
   }> => {
@@ -181,7 +313,7 @@ getProfile: async (): Promise<User> => {
       const response = await api.post(`/student/reset-exam/${examId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error resetting exam:', error);
+      console.error("Error resetting exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -189,14 +321,14 @@ getProfile: async (): Promise<User> => {
   // 📊 Get student results
   getResults: async (): Promise<Answer[]> => {
     try {
-      const response: AxiosResponse<{ success: boolean; results: Answer[] }> = await api.get('/student/results');
+      const response: AxiosResponse<{ success: boolean; results: Answer[] }> =
+        await api.get("/student/results");
       return response.data.results || [];
     } catch (error: any) {
-      console.error('Error fetching results:', error);
+      console.error("Error fetching results:", error);
       return [];
     }
   },
-
 
   // ========================
   // ADMIN API METHODS 🔐 (Unchanged — preserved as-is)
@@ -204,16 +336,20 @@ getProfile: async (): Promise<User> => {
 
   getDashboardStats: async (): Promise<DashboardData> => {
     try {
-      const response = await api.get('/admin/exams');
-      const exams = response.data.exams || response.data.data || response.data || [];
+      const response = await api.get("/admin/exams");
+      const exams =
+        response.data.exams || response.data.data || response.data || [];
 
       const stats: DashboardStats = {
-        scheduled: exams.filter((exam: any) => exam.status === 'scheduled').length,
-        running: exams.filter((exam: any) => exam.status === 'running').length,
-        completed: exams.filter((exam: any) => exam.status === 'completed').length,
-        cancelled: exams.filter((exam: any) => exam.status === 'cancelled').length,
+        scheduled: exams.filter((exam: any) => exam.status === "scheduled")
+          .length,
+        running: exams.filter((exam: any) => exam.status === "running").length,
+        completed: exams.filter((exam: any) => exam.status === "completed")
+          .length,
+        cancelled: exams.filter((exam: any) => exam.status === "cancelled")
+          .length,
         recentCompletions: exams.filter((exam: any) => {
-          if (exam.status !== 'completed' || !exam.createdAt) return false;
+          if (exam.status !== "completed" || !exam.createdAt) return false;
           const completedDate = new Date(exam.createdAt);
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
@@ -222,7 +358,7 @@ getProfile: async (): Promise<User> => {
       };
 
       const runningExams: RunningExam[] = exams
-        .filter((exam: any) => exam.status === 'running')
+        .filter((exam: any) => exam.status === "running")
         .slice(0, 10)
         .map((exam: any) => ({
           _id: exam._id,
@@ -231,18 +367,18 @@ getProfile: async (): Promise<User> => {
           date: exam.date,
           time: exam.time,
           duration: Number(exam.duration) || 60,
-          examType: exam.examType || 'general',
+          examType: exam.examType || "general",
           studentId: exam.studentId
             ? {
-                name: exam.studentId.name || 'Unknown',
-                username: exam.studentId.username || 'unknown',
+                name: exam.studentId.name || "Unknown",
+                username: exam.studentId.username || "unknown",
               }
             : undefined,
         }));
 
       const upcomingExams: UpcomingExam[] = exams
         .filter((exam: any) => {
-          if (exam.status !== 'scheduled') return false;
+          if (exam.status !== "scheduled") return false;
           const examDateTime = new Date(`${exam.date}T${exam.time}`);
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
@@ -255,18 +391,18 @@ getProfile: async (): Promise<User> => {
           program: exam.program,
           date: exam.date,
           time: exam.time,
-          examType: exam.examType || 'general',
+          examType: exam.examType || "general",
           studentId: exam.studentId
             ? {
-                name: exam.studentId.name || 'Unknown',
-                username: exam.studentId.username || 'unknown',
+                name: exam.studentId.name || "Unknown",
+                username: exam.studentId.username || "unknown",
               }
             : undefined,
         }));
 
       return { stats, runningExams, upcomingExams };
     } catch (error: any) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error("Error fetching dashboard stats:", error);
       return {
         stats: {
           scheduled: 0,
@@ -283,30 +419,41 @@ getProfile: async (): Promise<User> => {
 
   getUsers: async (): Promise<User[]> => {
     try {
-      const response = await api.get('/admin/users');
+      const response = await api.get("/admin/users");
       return response.data.users || response.data.data || response.data || [];
     } catch (error: any) {
-      console.error('Error fetching users:', error);
+      console.error("Error fetching users:", error);
       return [];
     }
   },
 
   createStudent: async (studentData: StudentData): Promise<User> => {
     try {
-      const response = await api.post('/admin/students', studentData);
+      const response = await api.post("/admin/students", studentData);
       return response.data.student || response.data;
     } catch (error: any) {
-      console.error('Error creating student:', error);
+      console.error("Error creating student:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
-  updateStudent: async (id: string, studentData: Partial<StudentData>): Promise<User> => {
+  updateStudent: async (
+    id: string,
+    studentData: Partial<StudentData>
+  ): Promise<User> => {
     try {
+      console.log("Updating student with ID:", id); // Debug log
+      console.log("Sending updateStudent payload:", studentData); // Debug log
       const response = await api.put(`/admin/students/${id}`, studentData);
+      console.log("Update response:", response.data); // Debug log
       return response.data.student || response.data;
     } catch (error: any) {
-      console.error('Error updating student:', error);
+      console.error("Error updating student:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        payload: studentData,
+      });
       throw error.response?.data || { message: error.message };
     }
   },
@@ -315,30 +462,37 @@ getProfile: async (): Promise<User> => {
     try {
       await api.delete(`/admin/students/${id}`);
     } catch (error: any) {
-      console.error('Error deleting student:', error);
+      console.error("Error deleting student:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
-  getallExams: async (params?: { status?: string; program?: string; examType?: string; page?: number; limit?: number }): Promise<Exam[]> => {
+  getallExams: async (params?: {
+    status?: string;
+    program?: string;
+    examType?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<Exam[]> => {
     try {
-      const response: AxiosResponse<ApiResponse<Exam[]>> = await api.get('/admin/exams', { params });
+      const response: AxiosResponse<ApiResponse<Exam[]>> = await api.get(
+        "/admin/exams",
+        { params }
+      );
       const { data } = response;
       return data.data || data.exams || (Array.isArray(data) ? data : []) || [];
     } catch (error: any) {
-      console.error('Error fetching exams:', error);
+      console.error("Error fetching exams:", error);
       return [];
     }
   },
 
-  
-
   createExam: async (examData: NewExam): Promise<Exam> => {
     try {
-      const response = await api.post('/admin/exams', examData);
+      const response = await api.post("/admin/exams", examData);
       return response.data.exam || response.data;
     } catch (error: any) {
-      console.error('Error creating exam:', error);
+      console.error("Error creating exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -348,7 +502,7 @@ getProfile: async (): Promise<User> => {
       const response = await api.put(`/admin/exams/${id}`, examData);
       return response.data.exam || response.data;
     } catch (error: any) {
-      console.error('Error updating exam:', error);
+      console.error("Error updating exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -357,36 +511,36 @@ getProfile: async (): Promise<User> => {
     try {
       await api.delete(`/admin/exams/${id}`);
     } catch (error: any) {
-      console.error('Error deleting exam:', error);
+      console.error("Error deleting exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
   notifyStudents: async (examId: string, program: string): Promise<void> => {
     try {
-      await api.post('/admin/notify-students', { examId, program });
+      await api.post("/admin/notify-students", { examId, program });
     } catch (error: any) {
-      console.error('Error notifying students:', error);
+      console.error("Error notifying students:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
   getRunningExams: async (): Promise<RunningExam[]> => {
     try {
-      const response = await api.get('/admin/exams?status=running');
+      const response = await api.get("/admin/exams?status=running");
       return response.data.exams || response.data.data || response.data || [];
     } catch (error: any) {
-      console.error('Error fetching running exams:', error);
+      console.error("Error fetching running exams:", error);
       return [];
     }
   },
 
   getScheduledExams: async (): Promise<Exam[]> => {
     try {
-      const response = await api.get('/admin/exams?status=scheduled');
+      const response = await api.get("/admin/exams?status=scheduled");
       return response.data.exams || response.data.data || response.data || [];
     } catch (error: any) {
-      console.error('Error fetching scheduled exams:', error);
+      console.error("Error fetching scheduled exams:", error);
       return [];
     }
   },
@@ -396,20 +550,26 @@ getProfile: async (): Promise<User> => {
   // ========================
   createQuestion: async (questionData: NewQuestion): Promise<Question> => {
     try {
-      const response = await api.post('/admin/questions', questionData);
+      const response = await api.post("/admin/questions", questionData);
       return response.data.question || response.data;
     } catch (error: any) {
-      console.error('Error creating question:', error);
+      console.error("Error creating question:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
-  updateQuestion: async (questionId: string, questionData: Partial<NewQuestion>): Promise<Question> => {
+  updateQuestion: async (
+    questionId: string,
+    questionData: Partial<NewQuestion>
+  ): Promise<Question> => {
     try {
-      const response = await api.put(`/admin/questions/${questionId}`, questionData);
+      const response = await api.put(
+        `/admin/questions/${questionId}`,
+        questionData
+      );
       return response.data.question || response.data;
     } catch (error: any) {
-      console.error('Error updating question:', error);
+      console.error("Error updating question:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -418,7 +578,7 @@ getProfile: async (): Promise<User> => {
     try {
       await api.delete(`/admin/questions/${questionId}`);
     } catch (error: any) {
-      console.error('Error deleting question:', error);
+      console.error("Error deleting question:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -426,19 +586,30 @@ getProfile: async (): Promise<User> => {
   getAllExamQuestions: async (examId: string): Promise<Question[]> => {
     try {
       const response = await api.get(`/admin/exams/${examId}/questions`);
-      return response.data.questions || response.data.data || (Array.isArray(response.data) ? response.data : []) || [];
+      return (
+        response.data.questions ||
+        response.data.data ||
+        (Array.isArray(response.data) ? response.data : []) ||
+        []
+      );
     } catch (error: any) {
-      console.error('Error fetching exam questions:', error);
+      console.error("Error fetching exam questions:", error);
       return [];
     }
   },
 
-  addQuestionsToExam: async (examId: string, questions: NewQuestion[]): Promise<Exam> => {
+  addQuestionsToExam: async (
+    examId: string,
+    questions: NewQuestion[]
+  ): Promise<Exam> => {
     try {
-      const response = await api.post(`/admin/exams/${examId}/questions`, questions);
+      const response = await api.post(
+        `/admin/exams/${examId}/questions`,
+        questions
+      );
       return response.data.exam || response.data;
     } catch (error: any) {
-      console.error('Error adding questions to exam:', error);
+      console.error("Error adding questions to exam:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -448,35 +619,50 @@ getProfile: async (): Promise<User> => {
   // ========================
   getAllResults: async (): Promise<Answer[]> => {
     try {
-      const response = await api.get('/admin/results');
+      const response = await api.get("/admin/results");
       return response.data.results || response.data.data || response.data || [];
     } catch (error: any) {
-      console.error('Error fetching all results:', error);
+      console.error("Error fetching all results:", error);
       return [];
     }
   },
 
   getResultsByProgram: async (program: string): Promise<Answer[]> => {
     try {
-      const params = program && program !== 'all' ? { program } : {};
-      const response = await api.get('/admin/results', { params });
-      const results = response.data.results || response.data.data || response.data || [];
+      const params = program && program !== "all" ? { program } : {};
+      const response = await api.get("/admin/results", { params });
+      const results =
+        response.data.results || response.data.data || response.data || [];
       return Array.isArray(results) ? results : [];
     } catch (error: any) {
-      console.error('Error fetching results by program:', error);
+      console.error("Error fetching results by program:", error);
       return [];
     }
   },
 
   getQuestionsByProgram: async (program: string): Promise<Question[]> => {
     try {
-      const response = await api.get('/admin/questions', {
+      const response = await api.get("/admin/questions", {
         params: { program },
       });
       return response.data || [];
     } catch (error: any) {
-      console.error('Error fetching questions by program:', error);
+      console.error("Error fetching questions by program:", error);
       return [];
+    }
+  },
+
+  // Add this method to your apiService
+
+  getQuestionsByIds: async (questionIds: string[]): Promise<any[]> => {
+    try {
+      const response = await api.post("/admin/questions/by-ids", {
+        questionIds,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching questions by IDs:", error);
+      throw error.response?.data || { message: error.message };
     }
   },
 
@@ -488,10 +674,10 @@ getProfile: async (): Promise<User> => {
     program: string;
   }): Promise<Question> => {
     try {
-      const response = await api.post('/admin/questions', questionData);
+      const response = await api.post("/admin/questions", questionData);
       return response.data.question || response.data;
     } catch (error: any) {
-      console.error('Error creating question:', error);
+      console.error("Error creating question:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -499,28 +685,34 @@ getProfile: async (): Promise<User> => {
   downloadResultPDF: async (resultId: string): Promise<void> => {
     try {
       const response = await api.get(`/admin/results/${resultId}/pdf`, {
-        responseType: 'blob',
+        responseType: "blob",
       });
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `result-${resultId}.pdf`);
+      link.setAttribute("download", `result-${resultId}.pdf`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
-      console.error('Error downloading result PDF:', error);
+      console.error("Error downloading result PDF:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
-  sendCongratulationEmail: async (resultId: string): Promise<CongratulationResponse> => {
+  sendCongratulationEmail: async (
+    resultId: string
+  ): Promise<CongratulationResponse> => {
     try {
-      const response = await api.post(`/admin/results/${resultId}/congratulation`);
+      const response = await api.post(
+        `/admin/results/${resultId}/congratulation`
+      );
       return response.data as CongratulationResponse;
     } catch (error: any) {
-      console.error('Error sending congratulation email:', error);
+      console.error("Error sending congratulation email:", error);
       throw error.response?.data || { message: error.message };
     }
   },
@@ -530,20 +722,20 @@ getProfile: async (): Promise<User> => {
   // ========================
   healthCheck: async (): Promise<{ status: string; timestamp: string }> => {
     try {
-      const response = await api.get('/health');
+      const response = await api.get("/health");
       return response.data;
     } catch (error: any) {
-      console.error('Error checking health:', error);
+      console.error("Error checking health:", error);
       throw error.response?.data || { message: error.message };
     }
   },
 
   getServerStats: async (): Promise<any> => {
     try {
-      const response = await api.get('/admin/server-stats');
+      const response = await api.get("/admin/server-stats");
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching server stats:', error);
+      console.error("Error fetching server stats:", error);
       throw error.response?.data || { message: error.message };
     }
   },

@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Calendar, AlertCircle, Mail, ArrowRight, Sparkles, Shield } from 'lucide-react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
-
-// Import your logo
-import logo from '../assets/logo.png'; // Adjust path as needed
+import {apiService} from '../services/apiService'; 
+import logo from '../assets/logo.png'; 
 
 interface LoginFormData {
   username: string;
@@ -46,157 +44,174 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
 
   const navigate = useNavigate();
 
-  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setError('');
-  };
+const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  setFormData((prev) => ({ ...prev, [name]: value }));
+  setError('');
+};
 
-  const handleForgotPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
-    setError('');
-    setSuccess('');
-  };
+const handleForgotPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
+  setError('');
+  setSuccess('');
+};
 
-  const checkCredentials = async () => {
-    if (!formData.username || !formData.password) return;
+const checkCredentials = async () => {
+  if (!formData.username || !formData.password) return;
 
-    setIsCheckingCredentials(true);
-    setError('');
+  setIsCheckingCredentials(true);
+  setError('');
 
+  try {
+    console.log('🔍 Checking credentials for:', formData.username);
+
+    // Try admin login using apiService
     try {
-      console.log('🔍 Checking credentials for:', formData.username);
+      const adminResponse = await apiService.adminLogin(
+        formData.username,
+        formData.password
+      );
 
-      // Try admin login
-      try {
-        const adminResponse = await axios.post('http://localhost:5000/api/auth/admin-login', {
-          username: formData.username,
-          password: formData.password,
-        });
-
-        if (adminResponse.data.success) {
-          console.log('✅ Admin credentials detected');
-          setDetectedRole('admin');
-          setShowDateOfBirth(false);
-          return;
-        }
-      } catch (err) {
-        console.log('❌ Not admin');
+      if (adminResponse.success) {
+        console.log('✅ Admin credentials detected');
+        setDetectedRole('admin');
+        setShowDateOfBirth(false);
+        return;
       }
-
-      // Try student credentials
-      try {
-        const studentResponse = await axios.post('http://localhost:5000/api/auth/check-student-credentials', {
-          username: formData.username,
-          password: formData.password,
-        });
-
-        if (studentResponse.data.success) {
-          console.log('✅ Student credentials detected');
-          setDetectedRole('student');
-          setShowDateOfBirth(true);
-          return;
-        }
-      } catch (err) {
-        console.log('❌ Not student');
-      }
-
-      setError('Invalid username or password');
-      setDetectedRole(null);
-      setShowDateOfBirth(false);
     } catch (err) {
-      setError('Invalid username or password');
-      setDetectedRole(null);
-      setShowDateOfBirth(false);
-    } finally {
-      setIsCheckingCredentials(false);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!detectedRole) {
-      await checkCredentials();
-      return;
+      console.log('❌ Not admin');
     }
 
-    if (detectedRole === 'student' && !formData.dateOfBirth) {
-      setError('Please enter your date of birth');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
+    // Try student credentials using apiService
     try {
-      const endpoint = detectedRole === 'student' ? '/api/auth/student-login' : '/api/auth/admin-login';
-      const payload = detectedRole === 'student'
-        ? { username: formData.username, password: formData.password, dob: formData.dateOfBirth }
-        : { username: formData.username, password: formData.password };
+      const studentResponse = await apiService.checkStudentCredentials(
+        formData.username,
+        formData.password
+      );
 
-      const response = await axios.post(`http://localhost:5000${endpoint}`, payload);
-
-      if (response.data.success) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem(detectedRole, JSON.stringify(response.data[detectedRole]));
-
-        setIsAuthenticated(true);
-        setUserRole(detectedRole);
-        toast.success(`Welcome back, ${detectedRole}!`);
-
-        const redirectPath = detectedRole === 'student' ? '/student-dashboard' : '/admin-dashboard';
-        navigate(redirectPath);
-      } else {
-        setError(response.data.message || 'Login failed');
-        toast.error(response.data.message || 'Login failed');
+      if (studentResponse.success) {
+        console.log('✅ Student credentials detected');
+        setDetectedRole('student');
+        setShowDateOfBirth(true);
+        return;
       }
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Login failed. Please try again.';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    setSuccess('');
-
-    if (!forgotPasswordData.email || !forgotPasswordData.username || !forgotPasswordData.dateOfBirth) {
-      setError('Please fill in all fields');
-      toast.error('Please fill in all fields');
-      setIsLoading(false);
-      return;
+    } catch (err) {
+      console.log('❌ Not student');
     }
 
-    try {
-      const response = await axios.post('http://localhost:5000/api/auth/forgot-password', {
-        email: forgotPasswordData.email,
-        username: forgotPasswordData.username,
-        dob: forgotPasswordData.dateOfBirth,
-      });
+    setError('Invalid username or password');
+    setDetectedRole(null);
+    setShowDateOfBirth(false);
+  } catch (err) {
+    setError('Invalid username or password');
+    setDetectedRole(null);
+    setShowDateOfBirth(false);
+  } finally {
+    setIsCheckingCredentials(false);
+  }
+};
 
-      if (response.data.success) {
-        setSuccess('Password recovery instructions sent to your email!');
-        toast.success('Password recovery instructions sent to your email!');
-        setForgotPasswordData({ email: '', username: '', dateOfBirth: '' });
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!detectedRole) {
+    await checkCredentials();
+    return;
+  }
+
+  if (detectedRole === 'student' && !formData.dateOfBirth) {
+    setError('Please enter your date of birth');
+    return;
+  }
+
+  setIsLoading(true);
+  setError('');
+
+  try {
+    let response;
+
+    if (detectedRole === 'student') {
+      // Use apiService for student login
+      response = await apiService.studentLogin(
+        formData.username,
+        formData.password,
+        formData.dateOfBirth
+      );
+    } else {
+      // Use apiService for admin login
+      response = await apiService.adminLogin(
+        formData.username,
+        formData.password
+      );
+    }
+
+    if (response.success && response.token) {
+      localStorage.setItem('authToken', response.token);
+      
+      // Store user data based on role
+      if (detectedRole === 'student') {
+        localStorage.setItem('student', JSON.stringify(response.user));
       } else {
-        setError(response.data.message || 'Password recovery failed');
-        toast.error(response.data.message || 'Password recovery failed');
+        localStorage.setItem('admin', JSON.stringify(response.user));
       }
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Network error. Please try again.';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
+
+      setIsAuthenticated(true);
+      setUserRole(detectedRole);
+      toast.success(`Welcome back, ${detectedRole}!`);
+
+      const redirectPath = detectedRole === 'student' ? '/student-dashboard' : '/admin-dashboard';
+      navigate(redirectPath);
+    } else {
+      setError(response.message || 'Login failed');
+      toast.error(response.message || 'Login failed');
     }
-  };
+  } catch (err: any) {
+    const message = err.message || 'Login failed. Please try again.';
+    setError(message);
+    toast.error(message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleForgotPassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError('');
+  setSuccess('');
+
+  if (!forgotPasswordData.email || !forgotPasswordData.username || !forgotPasswordData.dateOfBirth) {
+    setError('Please fill in all fields');
+    toast.error('Please fill in all fields');
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    // Use apiService for forgot password
+    const response = await apiService.forgotPassword(
+      forgotPasswordData.email,
+      forgotPasswordData.username,
+      forgotPasswordData.dateOfBirth
+    );
+
+    if (response.success) {
+      setSuccess('Password recovery instructions sent to your email!');
+      toast.success('Password recovery instructions sent to your email!');
+      setForgotPasswordData({ email: '', username: '', dateOfBirth: '' });
+    } else {
+      setError(response.message || 'Password recovery failed');
+      toast.error(response.message || 'Password recovery failed');
+    }
+  } catch (err: any) {
+    const message = err.message || 'Network error. Please try again.';
+    setError(message);
+    toast.error(message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const toggleForgotPassword = () => {
     setShowForgotPassword(!showForgotPassword);

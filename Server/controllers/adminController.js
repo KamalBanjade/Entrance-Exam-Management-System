@@ -7,6 +7,7 @@ const { sendEmail } = require("../utils/sendEmail");
 const examScheduler = require('../schedulers/examTimerScheduler');
 const { generateEmailTemplate } = require('../utils/emailTemplates');
 const { sendSMS } = require('../utils/smsService');
+const mongoose = require("mongoose");
 
 // Backend Controller - Enhanced createStudent function
 const createStudent = async (req, res) => {
@@ -359,9 +360,30 @@ Crimson College Of Technology
 // Get all students
 const getAllStudents = async (req, res) => {
   try {
-    const students = await User.find({ role: "student" }).select("-password");
+    // Fetch all students
+    const students = await User.find({ role: "student" }).select("-password").lean();
 
-    res.status(200).json(students);
+    // Fetch exam details for each student
+    const studentsWithExams = await Promise.all(
+      students.map(async (student) => {
+        const exam = await Exam.findOne({ 
+          studentId: student._id, 
+          examType: 'student-specific' 
+        }).select('title date time duration');
+        
+        return {
+          ...student,
+          exam: exam ? {
+            examTitle: exam.title,
+            examDate: exam.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+            examTime: exam.time,
+            examDuration: exam.duration,
+          } : null,
+        };
+      })
+    );
+
+    res.status(200).json(studentsWithExams);
   } catch (error) {
     console.error("Error fetching students:", error);
     res.status(500).json({
@@ -885,6 +907,21 @@ const getExamQuestions = async (req, res) => {
   }
 };
 
+const getquestionbyId = async (req, res) => {
+try {
+    const { questionIds } = req.body;
+    
+    const questions = await Question.find({
+      _id: { $in: questionIds }
+    }).select('question options correctAnswer category');
+    
+    res.json(questions);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 // Add questions to an exam
 const addQuestionsToExam = async (req, res) => {
   try {
@@ -1182,104 +1219,150 @@ Crimson College Of Technology
 
 
 const updateStudent = async (req, res) => {
+  const { id } = req.params;
+  const { name, username, email, phone, program, dob, examTitle, examDate, examTime, examDuration, password } = req.body;
+
+  console.log(`Updating student with ID: ${id}`); // Debug log
+  console.log('Received payload:', req.body); // Debug log
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    console.log(`Invalid ObjectId: ${id}`);
+    return res.status(400).json({ success: false, message: 'Invalid student ID format' });
+  }
+
   try {
-    const { id } = req.params;
-    const { examTitle, examDate, examTime, examDuration, program, ...updateData } = req.body;
-
-    // Don't allow role changing
-    if (updateData.role && updateData.role !== 'student') {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot change user role",
-      });
+    // Validate required fields
+    if (!name?.trim()) {
+      return res.status(400).json({ success: false, message: 'Name is required' });
+    }
+    if (!username?.trim()) {
+      return res.status(400).json({ success: false, message: 'Username is required' });
+    }
+    if (!email?.trim()) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    // Hash password if it's being updated
-    if (updateData.password) {
-      updateData.password = await bcrypt.hash(updateData.password, 10);
-    } else {
-      delete updateData.password;
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
 
-    // Update student data
-    const updatedStudent = await User.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    ).select('-password');
-
-    if (!updatedStudent) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found",
-      });
+    // Validate phone if provided
+    if (phone?.trim()) {
+      const phoneRegex = /^\+?\d{10,15}$/;
+      if (!phoneRegex.test(phone.trim())) {
+        return res.status(400).json({ success: false, message: 'Invalid phone number' });
+      }
     }
 
-    // Handle exam update/creation
-    if (examTitle && examDate && examTime && examDuration) {
-      const examDateTime = moment(`${examDate} ${examTime}`, 'YYYY-MM-DD HH:mm');
-      
-      // Validate exam date and time format
-      if (!examDateTime.isValid()) {
+    // Validate program if provided
+    if (program && !['BCSIT', 'BCA', 'BBA'].includes(program)) {
+      return res.status(400).json({ success: false, message: 'Invalid program. Must be BCSIT, BCA, or BBA' });
+    }
+
+    // Validate dob if provided
+    if (dob) {
+      const dobDate = new Date(dob);
+      const now = new Date();
+      const minAge = new Date(now.getFullYear() - 16, now.getMonth(), now.getDate());
+
+      if (isNaN(dobDate.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid date of birth' });
+      }
+      if (dobDate > minAge) {
+        return res.status(400).json({ success: false, message: 'Student must be at least 16 years old' });
+      }
+      if (dobDate > now) {
+        return res.status(400).json({ success: false, message: 'Date of birth cannot be in the future' });
+      }
+    }
+
+    // Prepare user update data
+    const updateData = {
+      name: name.trim(),
+      username: username.trim(),
+      email: email.trim(),
+      ...(phone?.trim() && { phone: phone.trim() }),
+      ...(dob && { dob }),
+      ...(program && { program }),
+      ...(password?.trim() && { password: password.trim() }),
+    };
+
+    console.log('Attempting to update user with ID:', id); // Debug log
+    console.log('Update data:', updateData); // Debug log
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
+    if (!updatedUser) {
+      console.log(`Student not found for ID: ${id}`); // Debug log
+      return res.status(404).json({ success: false, message: `Student not found with ID: ${id}` });
+    }
+
+    // Handle exam details if provided
+    const hasExamDetails = examTitle?.trim() || examDate || examTime || examDuration;
+    if (hasExamDetails) {
+      if (!examTitle?.trim() || !examDate || !examTime || !examDuration) {
         return res.status(400).json({
           success: false,
-          message: "Invalid exam date or time format",
+          message: 'All exam fields (title, date, time, duration) are required if any are provided',
         });
       }
 
-      // Check if student already has an exam
-      let existingExam = await Exam.findOne({ studentId: id });
+      const examDateTime = new Date(`${examDate} ${examTime}`);
+      const now = new Date();
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-      if (existingExam) {
-        // Cancel existing timers
-        examScheduler.cancelExamTimers(existingExam._id);
+      if (isNaN(examDateTime.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid exam date or time' });
+      }
+      if (examDateTime <= now) {
+        return res.status(400).json({ success: false, message: 'Exam date and time must be in the future' });
+      }
+      if (examDateTime > oneYearFromNow) {
+        return res.status(400).json({
+          success: false,
+          message: 'Exam date cannot be more than one year in the future',
+        });
+      }
+      if (examDuration <= 0) {
+        return res.status(400).json({ success: false, message: 'Exam duration must be greater than 0' });
+      }
 
-        // Update existing exam
-        existingExam.title = examTitle;
-        existingExam.program = program;
-        existingExam.date = examDate;
-        existingExam.time = examTime;
-        existingExam.duration = parseInt(examDuration);
-        existingExam.status = "scheduled";
-
-        await existingExam.save();
-
-        // Reschedule the updated exam
-        examScheduler.scheduleExam(existingExam);
-        console.log(`⏰ Rescheduled exam for student: "${existingExam.title}"`);
-      } else {
-        // Create new exam
-        const exam = new Exam({
-          title: examTitle,
-          program,
-          date: examDate,
+      console.log('Updating/creating exam for student ID:', id); // Debug log
+      await Exam.findOneAndUpdate(
+        { studentId: id, examType: 'student-specific' },
+        {
+          title: examTitle.trim(),
+          date: examDateTime,
           time: examTime,
-          duration: parseInt(examDuration),
-          status: "scheduled",
+          duration: examDuration,
           studentId: id,
-          examType: "student-specific",
-          questions: [],
-        });
-
-        await exam.save();
-
-        // Schedule the new exam
-        examScheduler.scheduleExam(exam);
-        console.log(`⏰ Scheduled new exam for student: "${exam.title}"`);
-      }
+          examType: 'student-specific',
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Student updated successfully",
-      student: updatedStudent,
-    });
+    res.status(200).json(updatedUser);
   } catch (error) {
-    console.error("Error updating student:", error);
+    console.error('Error updating student:', error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        success: false,
+        message: `The ${field} is already in use`,
+      });
+    }
     res.status(500).json({
       success: false,
-      message: "Failed to update student",
-      error: error.message,
+      message: error.message || 'Failed to update student',
     });
   }
 };
@@ -1391,5 +1474,6 @@ module.exports = {
   notifyStudents,
   getResultsByProgram,
   getActiveTimers,
-  getquestionByProgram
+  getquestionByProgram,
+  getquestionbyId
 };

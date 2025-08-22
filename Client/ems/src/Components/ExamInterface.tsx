@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Clock, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, BookOpen, LogOut } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 
 interface Question {
@@ -17,8 +18,9 @@ interface ExamData {
   _id: string;
   title: string;
   duration: number;
-  startedAt: string;
+  startedAt: Date;
   questions: string[];
+  program: string;
 }
 
 interface AnswerState {
@@ -46,41 +48,57 @@ const ExamInterface: React.FC = () => {
         const token = localStorage.getItem('authToken');
         if (!token) throw new Error('No authentication token found');
 
-        // Start exam
-        const startResponse = await axios.post(
-          `http://localhost:5000/api/student/start-exam/${examId}`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (!startResponse.data.success) {
-          throw new Error(startResponse.data.message || 'Failed to start exam');
+        if (!examId) {
+          throw new Error('Exam ID is required');
         }
 
-        // Fetch questions
-        const response = await axios.get(
-          `http://localhost:5000/api/student/exam/${examId}/questions`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // Start exam using apiService
+        const startResponse = await apiService.startExam(examId);
 
-        if (response.data.success && response.data.exam && response.data.questions) {
-          setExamData(response.data.exam);
-          setQuestions(response.data.questions);
+        if (!startResponse.success) {
+          throw new Error(startResponse.message || 'Failed to start exam');
+        }
 
-          const initialAnswers = response.data.questions.map((q: Question) => ({
+        // Fetch questions using apiService
+        const response = await apiService.getExamQuestions(examId);
+
+        if (response.success && response.exam && response.questions) {
+          // Create ExamData object with all required properties
+
+          const examData: ExamData = {
+            _id: response.exam._id,
+            title: response.exam.title,
+            duration: typeof response.exam.duration === 'string'
+              ? parseInt(response.exam.duration)
+              : response.exam.duration,
+            program: response.exam.program,
+            startedAt: response.exam.startedAt ? new Date(response.exam.startedAt) : new Date(), // Handle undefined
+            questions: response.exam.questions || []
+          };
+
+          setExamData(examData);
+          setQuestions(response.questions);
+
+          const initialAnswers = response.questions.map((q: Question) => ({
             qId: q._id,
             selected: '',
           }));
           setAnswers(initialAnswers);
 
-          const startTime = new Date(response.data.exam.startedAt);
+          // Calculate time remaining - ensure duration is a number
+          const examDuration = typeof examData.duration === 'string'
+            ? parseInt(examData.duration)
+            : examData.duration;
+
+          const startTime = examData.startedAt ? new Date(examData.startedAt) : new Date();
           const now = new Date();
           const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
-          const remaining = Math.max(0, response.data.exam.duration * 60 - elapsed);
+          const remaining = Math.max(0, examDuration * 60 - elapsed);
+
           setTimeRemaining(remaining);
           setExamStarted(true);
         } else {
-          throw new Error(response.data.message || 'Failed to load exam');
+          throw new Error(response.message || 'Failed to load exam');
         }
       } catch (err) {
         console.error('Error:', err);
@@ -257,11 +275,10 @@ const ExamInterface: React.FC = () => {
 
             {/* Timer */}
             <div
-              className={`flex items-center px-4 py-2 rounded-lg font-mono font-semibold ${
-                timeRemaining <= 300
+              className={`flex items-center px-4 py-2 rounded-lg font-mono font-semibold ${timeRemaining <= 300
                   ? 'bg-red-50 text-red-700 border border-red-200'
                   : 'bg-[#DC143C] text-white'
-              }`}
+                }`}
             >
               <Clock className="w-4 h-4 mr-2" />
               {formatTime(timeRemaining)}
@@ -298,13 +315,12 @@ const ExamInterface: React.FC = () => {
                     <button
                       key={index}
                       onClick={() => goToQuestion(index)}
-                      className={`p-3 text-sm rounded-lg transition-all flex items-center justify-center ${
-                        isCurrent
+                      className={`p-3 text-sm rounded-lg transition-all flex items-center justify-center ${isCurrent
                           ? 'bg-[#DC143C] text-white shadow-md transform scale-105'
                           : isAnswered
-                          ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {index + 1}
                       {isAnswered && <CheckCircle className="w-3 h-3 ml-1" />}
@@ -379,13 +395,12 @@ const ExamInterface: React.FC = () => {
                       <button
                         key={index}
                         onClick={() => goToQuestion(index)}
-                        className={`p-3 text-sm rounded-lg transition-all flex items-center justify-center ${
-                          isCurrent
+                        className={`p-3 text-sm rounded-lg transition-all flex items-center justify-center ${isCurrent
                             ? 'bg-[#DC143C] text-white'
                             : isAnswered
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
                       >
                         {index + 1}
                         {isAnswered && <CheckCircle className="w-3 h-3 ml-1" />}
@@ -453,11 +468,10 @@ const ExamInterface: React.FC = () => {
                   return (
                     <label
                       key={index}
-                      className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                        currentAnswer?.selected === option
+                      className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${currentAnswer?.selected === option
                           ? 'border-[#DC143C] bg-red-50 shadow-sm'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"

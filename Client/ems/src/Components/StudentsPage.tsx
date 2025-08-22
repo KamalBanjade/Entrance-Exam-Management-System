@@ -62,184 +62,295 @@ export const StudentsPage: React.FC = () => {
     }
   };
 
-const handleCreateStudent = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-
-  try {
-    if (!newStudent.name?.trim()) {
-      toast.error('Please enter student name');
-      return;
-    }
-
-    if (!newStudent.username?.trim()) {
-      toast.error('Please enter username');
-      return;
-    }
-
-    if (!newStudent.email?.trim()) {
-      toast.error('Please enter email address');
-      return;
-    }
-
-    if (!newStudent.program) {
-      toast.error('Please select a program');
-      return;
-    }
-
-    if (!newStudent.password?.trim()) {
-      toast.error('Please enter password');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newStudent.email.trim())) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    if (!['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
-      toast.error('Please select a valid program (BCSIT, BCA, or BBA)');
-      return;
-    }
-
-    if (newStudent.phone?.trim()) {
-      const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
-      if (!phoneRegex.test(newStudent.phone.trim())) {
-        toast.error('Please enter a valid phone number');
-        return;
-      }
-    }
-
-    if (newStudent.dob) {
-      const dobDate = new Date(newStudent.dob);
-      const today = new Date();
-      const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
-      
-      if (dobDate > minAge) {
-        toast.error('Student must be at least 16 years old');
-        return;
-      }
-      
-      if (dobDate > today) {
-        toast.error('Date of birth cannot be in the future');
-        return;
-      }
-    }
-
-    const hasExamDetails = newStudent.examTitle || newStudent.examDate || newStudent.examTime || newStudent.examDuration;
-    
-    if (hasExamDetails) {
-      if (!newStudent.examTitle?.trim()) {
-        toast.error('Please enter exam title');
-        return;
-      }
-
-      if (!newStudent.examDate) {
-        toast.error('Please select exam date');
-        return;
-      }
-
-      if (!newStudent.examTime) {
-        toast.error('Please select exam time');
-        return;
-      }
-
-      if (!newStudent.examDuration || newStudent.examDuration <= 0) {
-        toast.error('Exam duration must be greater than 0 minutes');
-        return;
-      }
-
-      const examDateTime = new Date(`${newStudent.examDate} ${newStudent.examTime}`);
-      const now = new Date();
-      
-      if (examDateTime <= now) {
-        toast.error('Exam date and time must be in the future');
-        return;
-      }
-
-      const oneYearFromNow = new Date();
-      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-      
-      if (examDateTime > oneYearFromNow) {
-        toast.error('Exam date cannot be more than one year in the future');
-        return;
-      }
-    }
-
-    const loadingToast = toast.loading('Sending welcome email...');
-    
-    try {
-      const createdStudent = await apiService.createStudent(newStudent);
-      
-      toast.update(loadingToast, {
-        render: 'Student created successfully! Welcome email sent.',
-        type: 'success',
-        isLoading: false,
-        autoClose: 5000,
-      });
-      
-      setStudents([...students, createdStudent]);
-      closeDialog();
-      
-      setTimeout(() => {
-        toast.success(`${newStudent.name} can now log in and access their ${hasExamDetails ? 'scheduled exam' : 'account'}!`);
-      }, 1500);
-      
-    } catch (error: any) {
-      toast.dismiss(loadingToast);
-      const message = error.response?.data?.message || 'Failed to create student.';
-      
-      if (message.includes('email')) {
-        toast.error(message);
-      } else if (message.includes('username')) {
-        toast.error(message);
-      } else if (message.includes('exam')) {
-        toast.error(message);
-      } else {
-        toast.error(message);
-      }
-    }
-  } catch (validationError) {
-    console.error('Validation error:', validationError);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-  const handleEditStudent = async (e: React.FormEvent) => {
+  const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentStudentId) return;
     setIsSubmitting(true);
 
-    if (!['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
-      toast.error('Please select a valid program');
-      setIsSubmitting(false);
-      return;
-    }
-    if (newStudent.examDuration <= 0) {
-      toast.error('Exam duration must be greater than 0');
-      setIsSubmitting(false);
-      return;
-    }
-    if (!newStudent.name || !newStudent.username || !newStudent.email) {
-      toast.error('Please fill all required fields');
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      const updatedStudent = await apiService.updateStudent(currentStudentId, newStudent);
-      setStudents(students.map((s) => (s._id === currentStudentId ? updatedStudent : s)));
-      closeDialog();
-      toast.success('✏️ Student updated successfully!');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to update student.';
-      toast.error(message);
+      if (!newStudent.name?.trim()) {
+        toast.error('Please enter student name');
+        return;
+      }
+
+      if (!newStudent.username?.trim()) {
+        toast.error('Please enter username');
+        return;
+      }
+
+      if (!newStudent.email?.trim()) {
+        toast.error('Please enter email address');
+        return;
+      }
+
+      if (!newStudent.program) {
+        toast.error('Please select a program');
+        return;
+      }
+
+      if (!newStudent.password?.trim()) {
+        toast.error('Please enter password');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newStudent.email.trim())) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+
+      if (!['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
+        toast.error('Please select a valid program (BCSIT, BCA, or BBA)');
+        return;
+      }
+
+      if (newStudent.phone?.trim()) {
+        const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
+        if (!phoneRegex.test(newStudent.phone.trim())) {
+          toast.error('Please enter a valid phone number');
+          return;
+        }
+      }
+
+      // if (newStudent.dob) {
+      //   const dobDate = new Date(newStudent.dob);
+      //   const today = new Date();
+      //   const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
+
+      //   if (dobDate > minAge) {
+      //     toast.error('Student must be at least 16 years old');
+      //     return;
+      //   }
+
+      //   if (dobDate > today) {
+      //     toast.error('Date of birth cannot be in the future');
+      //     return;
+      //   }
+      // }
+
+      const hasExamDetails = newStudent.examTitle || newStudent.examDate || newStudent.examTime || newStudent.examDuration;
+
+      if (hasExamDetails) {
+        if (!newStudent.examTitle?.trim()) {
+          toast.error('Please enter exam title');
+          return;
+        }
+
+        if (!newStudent.examDate) {
+          toast.error('Please select exam date');
+          return;
+        }
+
+        if (!newStudent.examTime) {
+          toast.error('Please select exam time');
+          return;
+        }
+
+        if (!newStudent.examDuration || newStudent.examDuration <= 0) {
+          toast.error('Exam duration must be greater than 0 minutes');
+          return;
+        }
+
+        const examDateTime = new Date(`${newStudent.examDate} ${newStudent.examTime}`);
+        const now = new Date();
+
+        if (examDateTime <= now) {
+          toast.error('Exam date and time must be in the future');
+          return;
+        }
+
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+        if (examDateTime > oneYearFromNow) {
+          toast.error('Exam date cannot be more than one year in the future');
+          return;
+        }
+      }
+
+      const loadingToast = toast.loading('Sending welcome email...');
+
+      try {
+        const createdStudent = await apiService.createStudent(newStudent);
+
+        toast.update(loadingToast, {
+          render: 'Student created successfully! Welcome email sent.',
+          type: 'success',
+          isLoading: false,
+          autoClose: 5000,
+        });
+
+        setStudents([...students, createdStudent]);
+        closeDialog();
+
+        setTimeout(() => {
+          toast.success(`${newStudent.name} can now log in and access their ${hasExamDetails ? 'scheduled exam' : 'account'}!`);
+        }, 1500);
+
+      } catch (error: any) {
+        toast.dismiss(loadingToast);
+        const message = error.response?.data?.message || 'Failed to create student.';
+
+        if (message.includes('email')) {
+          toast.error(message);
+        } else if (message.includes('username')) {
+          toast.error(message);
+        } else if (message.includes('exam')) {
+          toast.error(message);
+        } else {
+          toast.error(message);
+        }
+      }
+    } catch (validationError) {
+      console.error('Validation error:', validationError);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+const handleEditStudent = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!currentStudentId) {
+    toast.error('No student ID provided');
+    setIsSubmitting(false);
+    return;
+  }
+  console.log('Updating student with ID:', currentStudentId); // Debug log
+  console.log('Form data:', newStudent); // Debug log
+  setIsSubmitting(true);
+
+  // Basic required field validation
+  if (!newStudent.name?.trim()) {
+    toast.error('Please enter student name');
+    setIsSubmitting(false);
+    return;
+  }
+  if (!newStudent.username?.trim()) {
+    toast.error('Please enter username');
+    setIsSubmitting(false);
+    return;
+  }
+  if (!newStudent.email?.trim()) {
+    toast.error('Please enter email address');
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newStudent.email.trim())) {
+    toast.error('Please enter a valid email address');
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Program validation
+  if (newStudent.program && !['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
+    toast.error('Please select a valid program (BCSIT, BCA, or BBA)');
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Phone validation if provided
+  if (newStudent.phone?.trim()) {
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (!phoneRegex.test(newStudent.phone.trim())) {
+      toast.error('Please enter a valid phone number');
+      setIsSubmitting(false);
+      return;
+    }
+  }
+
+
+  // Exam field validation (only if any exam field is provided)
+  const hasExamDetails =
+    (newStudent.examTitle && newStudent.examTitle.trim()) || // Check examTitle safely
+    newStudent.examDate ||
+    newStudent.examTime ||
+    newStudent.examDuration;
+  if (hasExamDetails) {
+    if (!newStudent.examTitle?.trim()) {
+      toast.error('Please enter exam title');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!newStudent.examDate) {
+      toast.error('Please select exam date');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!newStudent.examTime) {
+      toast.error('Please select exam time');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!newStudent.examDuration || newStudent.examDuration <= 0) {
+      toast.error('Exam duration must be greater than 0 minutes');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const examDateTime = new Date(`${newStudent.examDate} ${newStudent.examTime}`);
+    const now = new Date();
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+    if (isNaN(examDateTime.getTime())) {
+      toast.error('Invalid exam date or time');
+      setIsSubmitting(false);
+      return;
+    }
+    if (examDateTime <= now) {
+      toast.error('Exam date and time must be in the future');
+      setIsSubmitting(false);
+      return;
+    }
+    if (examDateTime > oneYearFromNow) {
+      toast.error('Exam date cannot be more than one year in the future');
+      setIsSubmitting(false);
+      return;
+    }
+  }
+
+  // Prepare payload, omitting undefined or empty optional fields
+  const payload: Partial<StudentData> = {
+    name: newStudent.name.trim(),
+    username: newStudent.username.trim(),
+    email: newStudent.email.trim(),
+    ...(newStudent.phone?.trim() && { phone: newStudent.phone.trim() }),
+    ...(newStudent.dob && { dob: newStudent.dob }),
+    ...(newStudent.program && { program: newStudent.program }),
+    ...(newStudent.password?.trim() && { password: newStudent.password.trim() }),
+    ...(hasExamDetails && {
+      examTitle: newStudent.examTitle!.trim(), // Non-null assertion since validated
+      examDate: newStudent.examDate,
+      examTime: newStudent.examTime,
+      examDuration: newStudent.examDuration,
+    }),
+  };
+
+  try {
+    console.log('Sending payload to apiService:', payload); // Debug log
+    const updatedStudent = await apiService.updateStudent(currentStudentId, payload);
+    setStudents(students.map((s) => (s._id === currentStudentId ? updatedStudent : s)));
+    closeDialog();
+    toast.success('✏️ Student updated successfully!');
+  } catch (error: any) {
+    const message = error.msg || error.message || 'Failed to update student.';
+    if (error.status === 404) {
+      toast.error('Student not found. Please refresh the student list.');
+      await fetchStudents();
+    } else if (error.status === 401) {
+      toast.error('Unauthorized: Please log in as an admin.');
+    } else if (error.status === 403) {
+      toast.error('Access denied: Admin privileges required.');
+    } else {
+      toast.error(message);
+    }
+    console.error('Update student error:', error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleDeleteStudent = async (studentId: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
@@ -278,25 +389,25 @@ const handleCreateStudent = async (e: React.FormEvent) => {
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (student: User) => {
-    setIsEditing(true);
-    setCurrentStudentId(student._id);
-    setNewStudent({
-      name: student.name,
-      username: student.username,
-      password: "",
-      dob: student.dob || "",
-      email: student.email,
-      phone: student.phone || "",
-      program: student.program || "", // Fallback to empty string if null
-      examTitle: "",
-      examDate: "",
-      examTime: "",
-      examDuration: 60,
-      role: "student",
-    });
-    setIsDialogOpen(true);
-  };
+const openEditDialog = (student: User) => {
+  setIsEditing(true);
+  setCurrentStudentId(student._id);
+  setNewStudent({
+    name: student.name,
+    username: student.username,
+    password: "", // Password is not fetched for security
+    dob: student.dob || "",
+    email: student.email,
+    phone: student.phone || "",
+    program: student.program || "",
+    examTitle: student.exam?.examTitle || "", // Populate exam title
+    examDate: student.exam?.examDate || "", // Populate exam date
+    examTime: student.exam?.examTime || "", // Populate exam time
+    examDuration: student.exam?.examDuration || 60, // Default to 60 if no exam
+    role: "student",
+  });
+  setIsDialogOpen(true);
+};
 
   const closeDialog = () => {
     setIsDialogOpen(false);
@@ -402,7 +513,7 @@ const handleCreateStudent = async (e: React.FormEvent) => {
                         {student.program ? (
                           <span
                             className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${getProgramBadgeColor(
-                              student.program 
+                              student.program
                             )}`}
                           >
                             {student.program}
@@ -648,14 +759,26 @@ const handleCreateStudent = async (e: React.FormEvent) => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-3 bg-[#DC143C] text-white rounded-lg shadow-md hover:bg-[#c41234] transition flex items-center"
+                    className={`
+    px-5 py-3 bg-[#DC143C] text-white rounded-lg shadow-md 
+    hover:bg-[#c41234] hover:shadow-lg
+    disabled:opacity-75 disabled:cursor-not-allowed
+    transition-all duration-200
+    flex items-center
+    focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:ring-opacity-50
+  `}
                   >
                     {isSubmitting ? (
                       <>
-                        <FiLoader className="animate-spin mr-2" /> {isEditing ? 'Updating...' : 'Creating...'}
+                        {/* Spinner */}
+                        <FiLoader className="animate-spin" size={16} />
+                        {/* Spacing */}
+                        <span className="ml-2 whitespace-nowrap">
+                          {isEditing ? 'Updating...' : 'Creating...'}
+                        </span>
                       </>
                     ) : (
-                      isEditing ? 'Update Student' : 'Create Student'
+                      <span>{isEditing ? 'Update Student' : 'Create Student'}</span>
                     )}
                   </button>
                 </div>

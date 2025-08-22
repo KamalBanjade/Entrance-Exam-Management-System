@@ -17,6 +17,7 @@ export type Exam = {
   updatedAt?: string;
   canStart?: boolean;
   questionsCount?: number;
+  startedAt?: Date; // Add startedAt field
 };
 
 export interface NewExam {
@@ -69,6 +70,7 @@ export interface Answer {
   startedAt?: string; // Optional, as it may not always be set
   submittedAt?: string; // Already present, keep as string
   rank?: number;
+    sending?: boolean;
   congratulationSent?: boolean;
   validationDetails?: {
     questionId: string;
@@ -112,8 +114,14 @@ export interface User {
   dob?: string;
   email: string;
   phone: string;
-  program: "BSCIT" | "BCA" | "BBA" | null;
+  program: "BCSIT" | "BCA" | "BBA" | null; // Note: You have "BSCIT" here, but backend uses "BCSIT". Ensure consistency.
   createdAt: string;
+  exam?: {
+    examTitle: string;
+    examDate: string;
+    examTime: string;
+    examDuration: number;
+  };
 }
 
 // Assuming newStudent has a similar type

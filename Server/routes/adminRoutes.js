@@ -21,7 +21,8 @@ const {
   deleteExam,
   notifyStudents,
   getResultsByProgram,
-  getquestionByProgram
+  getquestionByProgram,
+  getquestionbyId
 } = require("../controllers/adminController");  // Verify this path is correct
 
 // Protect all admin routes with authMiddleware for admin role
@@ -47,5 +48,6 @@ router.post("/results/:resultId/congratulation", sendCongratulationEmail);
 router.post("/notify-students", notifyStudents)
 router.get('/results', authMiddleware('admin'), getResultsByProgram)
 router.get('/questions',getquestionByProgram)
+router.post('/questions/by-ids',getquestionbyId)
 
 module.exports = router;

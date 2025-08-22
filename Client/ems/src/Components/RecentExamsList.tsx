@@ -56,7 +56,6 @@ export const RecentExamsList: React.FC = () => {
 
   return (
     <div className="bg-white p-2 rounded-xl">
-      {/* Header */}
       <div className="flex justify-between items-center mb-5">
         <h2 className="text-xl font-bold text-[#333333] flex items-center gap-2">
           <FiBookOpen className="text-[#DC143C]" /> Recent Exams
@@ -66,12 +65,12 @@ export const RecentExamsList: React.FC = () => {
         </span>
       </div>
 
-      {/* Exam List */}
       <div className="space-y-3">
         {exams.length > 0 ? (
-          exams.map((exam) => (
+          exams.map((exam, index) => (
             <Link
-             to="/admin-dashboard/exams"
+              key={exam._id || index}
+              to="/admin-dashboard/exams"
               className="block p-4 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg transition-all hover:shadow"
             >
               <div className="flex items-start justify-between">
@@ -109,12 +108,11 @@ export const RecentExamsList: React.FC = () => {
         )}
       </div>
 
-      {/* View All */}
       <Link
         to="/admin-dashboard/exams"
         className="block text-center mt-20 text-[#DC143C] hover:text-[#c41234] font-medium text-sm transition"
       >
-        🔍 View all exams
+        <FiBookOpen className="inline-block mr-1" /> View all exams
       </Link>
     </div>
   );

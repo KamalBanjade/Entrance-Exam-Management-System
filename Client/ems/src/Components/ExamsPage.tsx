@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Exam } from '../types';
 import { apiService } from '../services/apiService';
-import { FiPlus, FiEdit, FiTrash2, FiLoader, FiBook, FiClock, FiX, FiEye, FiList } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiLoader, FiBook, FiClock, FiX } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -14,16 +14,6 @@ interface ExamFormData {
   status: 'scheduled' | 'completed' | 'cancelled';
 }
 
-interface Question {
-  _id: string;
-  questionText: string;
-  options: string[];
-  correctAnswer: number;
-  marks: number;
-  program: string;
-  examId?: string;
-}
-
 export const ExamsPage: React.FC = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,12 +21,6 @@ export const ExamsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  
-  // Questions view modal states
-  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
-  const [selectedExamForQuestions, setSelectedExamForQuestions] = useState<Exam | null>(null);
-  const [examQuestions, setExamQuestions] = useState<Question[]>([]);
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
 
   const [formData, setFormData] = useState<ExamFormData>({
     title: '',
@@ -99,31 +83,6 @@ export const ExamsPage: React.FC = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setIsEditing(null);
-  };
-
-  // Questions Modal Functions
-  const openQuestionsModal = async (exam: Exam) => {
-    setSelectedExamForQuestions(exam);
-    setIsQuestionsModalOpen(true);
-    setIsLoadingQuestions(true);
-    
-    try {
-      // Fetch questions for this exam
-      const questions = await apiService.getExamQuestions(exam._id);
-      setExamQuestions(Array.isArray(questions) ? questions : []);
-    } catch (error: any) {
-      console.error('Error fetching exam questions:', error);
-      toast.error('Failed to load exam questions.');
-      setExamQuestions([]);
-    } finally {
-      setIsLoadingQuestions(false);
-    }
-  };
-
-  const closeQuestionsModal = () => {
-    setIsQuestionsModalOpen(false);
-    setSelectedExamForQuestions(null);
-    setExamQuestions([]);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -326,13 +285,6 @@ export const ExamsPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
                         <button
-                          onClick={() => openQuestionsModal(exam)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors duration-150"
-                          title="View Questions"
-                        >
-                          <FiEye size={18} />
-                        </button>
-                        <button
                           onClick={() => openModal(exam)}
                           className="text-[#DC143C] hover:text-[#c41234] transition-colors duration-150"
                           title="Edit Exam"
@@ -522,126 +474,6 @@ export const ExamsPage: React.FC = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {/* Questions View Modal */}
-        {isQuestionsModalOpen && selectedExamForQuestions && (
-          <div
-            className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center p-4 z-50"
-            onClick={closeQuestionsModal}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center bg-blue-600 text-white p-6">
-                <div>
-                  <h2 className="text-xl font-bold flex items-center">
-                    <FiList className="mr-2" />
-                    Questions for {selectedExamForQuestions.title}
-                  </h2>
-                  <p className="text-blue-100 text-sm mt-1">
-                    Program: {selectedExamForQuestions.program} | Duration: {selectedExamForQuestions.duration} min
-                  </p>
-                </div>
-                <button
-                  onClick={closeQuestionsModal}
-                  className="text-white hover:text-gray-200 transition"
-                  aria-label="Close modal"
-                >
-                  <FiX size={24} />
-                </button>
-              </div>
-
-              {/* Questions Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                {isLoadingQuestions ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <FiLoader className="animate-spin text-blue-600 mb-4" size={32} />
-                    <p className="text-[#666666]">Loading questions...</p>
-                  </div>
-                ) : examQuestions.length > 0 ? (
-                  <div className="space-y-6">
-                    {examQuestions.map((question, index) => (
-                      <div key={question._id} className="bg-gray-50 rounded-lg p-5 border border-gray-200">
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-lg font-semibold text-[#333333] flex items-center">
-                            <span className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">
-                              {index + 1}
-                            </span>
-                            Question {index + 1}
-                          </h3>
-                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
-                            {question.marks} marks
-                          </span>
-                        </div>
-                        
-                        <p className="text-[#333333] mb-4 text-base leading-relaxed">
-                          {question.questionText}
-                        </p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {question.options.map((option, optionIndex) => (
-                            <div
-                              key={optionIndex}
-                              className={`p-3 rounded-lg border-2 transition-all ${
-                                optionIndex === question.correctAnswer
-                                  ? 'bg-green-50 border-green-500 text-green-800'
-                                  : 'bg-white border-gray-200 text-[#666666]'
-                              }`}
-                            >
-                              <div className="flex items-center">
-                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3 ${
-                                  optionIndex === question.correctAnswer
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gray-300 text-gray-600'
-                                }`}>
-                                  {String.fromCharCode(65 + optionIndex)}
-                                </span>
-                                <span className="flex-1">{option}</span>
-                                {optionIndex === question.correctAnswer && (
-                                  <span className="text-green-600 font-medium text-xs">✓ Correct</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <FiList className="text-gray-400 mb-4" size={48} />
-                    <h3 className="text-lg font-medium text-[#333333] mb-2">No Questions Found</h3>
-                    <p className="text-[#666666] text-center">
-                      This exam doesn't have any questions yet. Add questions to this exam to see them here.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[#666666]">
-                    Total Questions: {examQuestions.length}
-                    {examQuestions.length > 0 && (
-                      <span className="ml-4">
-                        Total Marks: {examQuestions.reduce((sum, q) => sum + (q.marks || 0), 0)}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    onClick={closeQuestionsModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         )}

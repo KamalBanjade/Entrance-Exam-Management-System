@@ -23,7 +23,7 @@ const seedAdmin = async () => {
       username: process.env.ADMIN_USERNAME || "admin",
       password: hashedPassword,
       dob: "2000-01-01", // placeholder if needed
-      email: process.env.ADMIN_EMAIL || "admin@example.com",
+      email: process.env.ADMIN_EMAIL || "kamalbanjade67@gmail.com",
       phone: process.env.ADMIN_PHONE || "9800000000",
       program: null
     });
