@@ -399,9 +399,9 @@ export const StudentsPage: React.FC = () => {
       email: student.email,
       phone: student.phone || "",
       program: student.program || "",
-      examTitle: student.exam?.examTitle || "", 
-      examDate: student.exam?.examDate || "", 
-      examTime: student.exam?.examTime || "", 
+      examTitle: student.exam?.examTitle || "",
+      examDate: student.exam?.examDate || "",
+      examTime: student.exam?.examTime || "",
       examDuration: student.exam?.examDuration || 60,
       role: "student",
     });
@@ -756,13 +756,13 @@ export const StudentsPage: React.FC = () => {
                     type="submit"
                     disabled={isSubmitting}
                     className={`
-    px-5 py-3 bg-[#DC143C] text-white rounded-lg shadow-md 
-    hover:bg-[#c41234] hover:shadow-lg
-    disabled:opacity-75 disabled:cursor-not-allowed
-    transition-all duration-200
-    flex items-center
-    focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:ring-opacity-50
-  `}
+                          px-5 py-3 bg-[#DC143C] text-white rounded-lg shadow-md 
+                          hover:bg-[#c41234] hover:shadow-lg
+                          disabled:opacity-75 disabled:cursor-not-allowed
+                          transition-all duration-200
+                          flex items-center
+                          focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:ring-opacity-50
+                        `}
                   >
                     {isSubmitting ? (
                       <>

@@ -8,14 +8,18 @@ export type Exam = {
   time: string;
   duration: string | number;
   questions: string[];
-  status: 'pending' | 'scheduled' | 'running' | 'completed' | 'cancelled';
-  displayStatus: 'upcoming' | 'available' | 'completed' | 'expired';
-  examType?: 'student-specific' | 'general';
+  status: "pending" | "scheduled" | "running" | "completed" | "cancelled";
+  displayStatus: "upcoming" | "available" | "completed" | "expired";
+  examType?: "student-specific" | "general";
   createdAt?: string;
   updatedAt?: string;
   canStart?: boolean;
   questionsCount?: number;
   startedAt?: Date;
+  studentName?: string;
+  studentUsername?: string;
+  studentEmail?: string;
+  isStudentSpecific?: boolean;
 };
 
 export interface NewExam {
@@ -24,10 +28,10 @@ export interface NewExam {
   date: string;
   time: string;
   duration: number;
-  status: 'pending' | 'scheduled' | 'completed' | 'cancelled';
+  status: "pending" | "scheduled" | "completed" | "cancelled";
   studentId?: string | null;
   assignedTo?: string | null;
-  examType?: 'general' | 'student-specific';
+  examType?: "general" | "student-specific";
 }
 
 export type Question = {
@@ -37,7 +41,7 @@ export type Question = {
   options: string[];
   correctAnswer: string;
   category: string;
-  program:string;
+  program: string;
 };
 
 export interface NewQuestion {
@@ -63,8 +67,8 @@ export interface Answer {
   score: number;
   totalQuestions: number;
   percentage: number;
-  result: 'pass' | 'fail' | null;
-  status: 'not-started' | 'in-progress' | 'submitted';
+  result: "pass" | "fail" | null;
+  status: "not-started" | "in-progress" | "submitted";
   startedAt?: string;
   submittedAt?: string;
   rank?: number;
@@ -92,7 +96,7 @@ export interface StudentData {
   examDate?: string;
   examTime?: string;
   examDuration: number;
-  role: 'student';
+  role: "student";
 }
 
 export interface ApiResponse<T> {
@@ -102,7 +106,7 @@ export interface ApiResponse<T> {
   exams?: T;
   total?: number;
   page?: number;
-  profile?:string;
+  profile?: string;
 }
 
 export interface User {
@@ -137,3 +141,4 @@ export interface NewStudent {
   examDuration: number;
   role: "student";
 }
+

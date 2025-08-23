@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, User, Lock, Calendar, AlertCircle, Mail, ArrowRight, Sparkles, Shield } from 'lucide-react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
-
-// Import your logo
 import logo from '../assets/logo.png'; // Adjust path as needed
+import { apiService } from '../services/apiService'; // Import the apiService object
 
 interface LoginFormData {
   username: string;
@@ -70,12 +68,8 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
 
       // Try admin login
       try {
-        const adminResponse = await axios.post('http://localhost:5000/api/auth/admin-login', {
-          username: formData.username,
-          password: formData.password,
-        });
-
-        if (adminResponse.data.success) {
+        const adminResponse = await apiService.adminLogin(formData.username, formData.password);
+        if (adminResponse.success) {
           console.log('✅ Admin credentials detected');
           setDetectedRole('admin');
           setShowDateOfBirth(false);
@@ -87,12 +81,8 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
 
       // Try student credentials
       try {
-        const studentResponse = await axios.post('http://localhost:5000/api/auth/check-student-credentials', {
-          username: formData.username,
-          password: formData.password,
-        });
-
-        if (studentResponse.data.success) {
+        const studentResponse = await apiService.checkStudentCredentials(formData.username, formData.password);
+        if (studentResponse.success) {
           console.log('✅ Student credentials detected');
           setDetectedRole('student');
           setShowDateOfBirth(true);
@@ -131,16 +121,16 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     setError('');
 
     try {
-      const endpoint = detectedRole === 'student' ? '/api/auth/student-login' : '/api/auth/admin-login';
-      const payload = detectedRole === 'student'
-        ? { username: formData.username, password: formData.password, dob: formData.dateOfBirth }
-        : { username: formData.username, password: formData.password };
+      let response;
+      if (detectedRole === 'student') {
+        response = await apiService.studentLogin(formData.username, formData.password, formData.dateOfBirth);
+      } else {
+        response = await apiService.adminLogin(formData.username, formData.password);
+      }
 
-      const response = await axios.post(`http://localhost:5000${endpoint}`, payload);
-
-      if (response.data.success) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem(detectedRole, JSON.stringify(response.data[detectedRole]));
+      if (response.success) {
+        localStorage.setItem('authToken', response.token || '');
+        localStorage.setItem(detectedRole, JSON.stringify(response.user));
 
         setIsAuthenticated(true);
         setUserRole(detectedRole);
@@ -149,11 +139,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
         const redirectPath = detectedRole === 'student' ? '/student-dashboard' : '/admin-dashboard';
         navigate(redirectPath);
       } else {
-        setError(response.data.message || 'Login failed');
-        toast.error(response.data.message || 'Login failed');
+        setError(response.message || 'Login failed');
+        toast.error(response.message || 'Login failed');
       }
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Login failed. Please try again.';
+      const message = err.message || 'Login failed. Please try again.';
       setError(message);
       toast.error(message);
     } finally {
@@ -175,22 +165,22 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/forgot-password', {
-        email: forgotPasswordData.email,
-        username: forgotPasswordData.username,
-        dob: forgotPasswordData.dateOfBirth,
-      });
+      const response = await apiService.forgotPassword(
+        forgotPasswordData.email,
+        forgotPasswordData.username,
+        forgotPasswordData.dateOfBirth
+      );
 
-      if (response.data.success) {
+      if (response.success) {
         setSuccess('Password recovery instructions sent to your email!');
         toast.success('Password recovery instructions sent to your email!');
         setForgotPasswordData({ email: '', username: '', dateOfBirth: '' });
       } else {
-        setError(response.data.message || 'Password recovery failed');
-        toast.error(response.data.message || 'Password recovery failed');
+        setError(response.message || 'Password recovery failed');
+        toast.error(response.message || 'Password recovery failed');
       }
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Network error. Please try again.';
+      const message = err.message || 'Network error. Please try again.';
       setError(message);
       toast.error(message);
     } finally {
@@ -215,19 +205,15 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     setError('');
   };
 
-
   return (
     <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Subtle background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#DC143C] rounded-full opacity-10 blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#DC143C] rounded-full opacity-5 blur-3xl"></div>
       </div>
 
       <div className="w-full max-w-md z-10">
-        {/* Header */}
         <div className="text-center mb-8">
-          {/* Logo */}
           <div className="mx-auto w-20 h-20 mb-5 flex items-center justify-center">
             <img
               src={logo}
@@ -235,37 +221,28 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
               className="w-full h-full object-contain rounded-xl shadow-lg border border-[#DC143C]/20"
             />
           </div>
-
-          {/* College Name with Styling */}
           <h2 className="text-2xl font-bold text-gray-800 tracking-wide leading-tight">
             Crimson College
           </h2>
-
-          {/* Subtitle with custom styling */}
           <div className="flex items-center justify-center mt-3 mb-2">
             <span className="text-sm text-gray-600 font-medium italic mr-2">Of Technology</span>
-           <div className="w-12 h-0.5 bg-red-500 ml-2 mt-3"></div>
+            <div className="w-12 h-0.5 bg-red-500 ml-2 mt-3"></div>
           </div>
-
-         
-
-          {/* Context message */}
-           <h1 className="text-xl font-bold text-[#DC143C] tracking-wider">
+          <h1 className="text-xl font-bold text-[#DC143C] tracking-wider">
             {showForgotPassword ? 'Reset your password' : 'Exam Portal'}
           </h1>
         </div>
 
-        {/* Main Card */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-8">
           {!showForgotPassword ? (
             <form onSubmit={handleLogin} className="space-y-6">
-              {/* Role Detection */}
               {detectedRole && (
                 <div
-                  className={`flex items-center justify-center p-3 rounded-lg border-2 ${detectedRole === 'admin'
-                    ? 'bg-red-50 border-[#DC143C]/30 text-[#DC143C]'
-                    : 'bg-blue-50 border-blue-300 text-blue-700'
-                    } text-sm font-medium`}
+                  className={`flex items-center justify-center p-3 rounded-lg border-2 ${
+                    detectedRole === 'admin'
+                      ? 'bg-red-50 border-[#DC143C]/30 text-[#DC143C]'
+                      : 'bg-blue-50 border-blue-300 text-blue-700'
+                  } text-sm font-medium`}
                 >
                   {detectedRole === 'admin' ? (
                     <>
@@ -279,7 +256,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 </div>
               )}
 
-              {/* Username */}
               <div className="relative">
                 <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#666666]" />
                 <input
@@ -294,7 +270,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 />
               </div>
 
-              {/* Password */}
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#666666]" />
                 <input
@@ -316,7 +291,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 </button>
               </div>
 
-              {/* Date of Birth (Student) */}
               {showDateOfBirth && (
                 <div className="relative">
                   <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#666666]" />
@@ -332,7 +306,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 </div>
               )}
 
-              {/* Error */}
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   <AlertCircle size={16} />
@@ -340,7 +313,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isLoading || isCheckingCredentials}
@@ -361,7 +333,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 )}
               </button>
 
-              {/* Actions */}
               <div className="flex flex-col gap-3 pt-4 border-t border-gray-100">
                 {detectedRole && (
                   <button
@@ -469,7 +440,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
           )}
         </div>
 
-        {/* Footer */}
         <p className="text-[#666666] text-xs text-center mt-6">
           Secure access • Privacy protected • Contact your administrator
         </p>

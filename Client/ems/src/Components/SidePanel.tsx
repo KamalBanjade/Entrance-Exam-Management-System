@@ -104,8 +104,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ userRole, collapsed, setCollapsed
           )}
         </div>
 
-
-        {/* Collapse Button */}
         <button
           onClick={() => setCollapsed(true)}
           className={`

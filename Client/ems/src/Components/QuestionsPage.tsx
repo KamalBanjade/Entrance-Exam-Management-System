@@ -204,6 +204,19 @@ const QuestionPage: React.FC = () => {
               Question Bank
             </h1>
             <p className="text-[#666666] mt-1">Manage questions by program for upcoming exams.</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-sm font-medium text-[#666666]">Total Questions:</span>
+              {isLoading ? (
+                <div className="flex items-center gap-1">
+                  <FiLoader className="animate-spin text-[#DC143C]" size={12} />
+                  <span className="text-sm text-[#666666]">Loading...</span>
+                </div>
+              ) : (
+                <span className="bg-[#DC143C] text-white text-sm font-bold px-3 py-2 rounded-full">
+                  {questions.length}
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setIsDialogOpen(true)}

@@ -31,28 +31,48 @@ export const ExamsPage: React.FC = () => {
     status: 'scheduled',
   });
 
-  useEffect(() => {
-    const fetchExams = async () => {
-      setIsLoading(true);
-      try {
-        const response = await apiService.getallExams();
-        let examData: Exam[] = [];
-        if (Array.isArray(response)) {
-          examData = response;
-        } else {
-          const responseObj = response as any;
-          examData = responseObj.exams || responseObj.data || [];
-        }
-        setExams(examData);
-      } catch (error: any) {
-        console.error('Error fetching exams:', error);
-        toast.error('Failed to load exams.');
-        setExams([]);
-      } finally {
-        setIsLoading(false);
+  const fetchExams = async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiService.getallExams();
+      let examData: Exam[] = [];
+      if (Array.isArray(response)) {
+        examData = response;
+      } else {
+        const responseObj = response as any;
+        examData = responseObj.exams || responseObj.data || [];
       }
-    };
+      setExams(examData);
+    } catch (error: any) {
+      console.error('Error fetching exams:', error);
+      toast.error('Failed to load exams.');
+      setExams([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchExams();
+
+    // Listen for exam submission or student deletion events
+    const handleExamSubmitted = () => {
+      console.log('Received examSubmitted event, refreshing exams');
+      fetchExams();
+    };
+
+    const handleStudentDeleted = () => {
+      console.log('Received studentDeleted event, refreshing exams');
+      fetchExams();
+    };
+
+    window.addEventListener('examSubmitted', handleExamSubmitted);
+    window.addEventListener('studentDeleted', handleStudentDeleted);
+
+    return () => {
+      window.removeEventListener('examSubmitted', handleExamSubmitted);
+      window.removeEventListener('studentDeleted', handleStudentDeleted);
+    };
   }, []);
 
   const openModal = (exam?: Exam) => {
@@ -158,7 +178,6 @@ export const ExamsPage: React.FC = () => {
     }
   };
 
-  // Program badge colors
   const getProgramBadgeColor = (program: string) => {
     switch (program) {
       case 'BCSIT':
@@ -172,7 +191,6 @@ export const ExamsPage: React.FC = () => {
     }
   };
 
-  // Status badge colors
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -186,10 +204,29 @@ export const ExamsPage: React.FC = () => {
     }
   };
 
+  const getExamStatus = (exam: Exam) => {
+    // For student-specific exams, use the stored status (set to 'completed' on submission)
+    if (exam.isStudentSpecific) {
+      return exam.status;
+    }
+
+    // For general exams, compute status based on schedule
+    const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+    const now = moment();
+    const endTime = examDateTime.clone().add(exam.duration, 'minutes');
+
+    if (now.isBefore(examDateTime)) {
+      return 'scheduled';
+    } else if (now.isBetween(examDateTime, endTime)) {
+      return 'running';
+    } else {
+      return 'completed';
+    }
+  };
+
   return (
     <div className="bg-[#F5F5F5] min-h-screen py-8 px-4" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 space-y-4 sm:space-y-0">
           <div>
             <h1 className="text-3xl font-extrabold text-[#333333] flex items-center">
@@ -198,15 +235,16 @@ export const ExamsPage: React.FC = () => {
             </h1>
             <p className="text-[#666666] mt-1">Create, manage, and track all exams across programs.</p>
           </div>
-          <button
-            onClick={() => openModal()}
-            className="flex items-center px-5 py-3 bg-[#DC143C] text-white rounded-xl shadow-md hover:bg-[#c41234] transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:ring-opacity-50"
-          >
-            <FiPlus className="mr-2" /> Create Exam
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => openModal()}
+              className="flex items-center px-5 py-3 bg-[#DC143C] text-white rounded-xl shadow-md hover:bg-[#c41234] transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:ring-opacity-50"
+            >
+              <FiPlus className="mr-2" /> Create Exam
+            </button>
+          </div>
         </div>
 
-        {/* Exam Table */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -216,10 +254,13 @@ export const ExamsPage: React.FC = () => {
                     Title & Duration
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-[#333333] uppercase tracking-wider">
-                    Program
+                    Program & Student
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-[#333333] uppercase tracking-wider">
                     Schedule
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#333333] uppercase tracking-wider">
+                    Type
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-[#333333] uppercase tracking-wider">
                     Status
@@ -232,7 +273,7 @@ export const ExamsPage: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-[#666666]">
+                    <td colSpan={6} className="px-6 py-8 text-center text-[#666666]">
                       <div className="flex flex-col items-center">
                         <FiLoader className="animate-spin text-[#DC143C]" size={24} />
                         <p className="mt-2 text-sm">Loading exams...</p>
@@ -241,10 +282,7 @@ export const ExamsPage: React.FC = () => {
                   </tr>
                 ) : exams.length > 0 ? (
                   exams.map((exam) => (
-                    <tr
-                      key={exam._id}
-                      className="hover:bg-gray-50 transition-colors duration-150 ease-in-out"
-                    >
+                    <tr key={exam._id} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 p-2 bg-red-50 rounded-lg mr-3">
@@ -256,15 +294,32 @@ export const ExamsPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${getProgramBadgeColor(
-                            exam.program
-                          )}`}
-                        >
-                          {exam.program}
-                        </span>
+
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <span
+                            className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${getProgramBadgeColor(
+                              exam.program
+                            )}`}
+                          >
+                            {exam.program}
+                          </span>
+
+                          {exam.isStudentSpecific && exam.studentName && (
+                            <div className="text-xs text-[#666666] mt-1">
+                              <div className="font-medium">{exam.studentName}</div>
+                              <div>{exam.studentUsername}</div>
+                            </div>
+                          )}
+
+                          {!exam.isStudentSpecific && (
+                            <div className="text-xs text-[#666666]">
+                              All {exam.program} Students
+                            </div>
+                          )}
+                        </div>
                       </td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center text-sm text-[#333333]">
                           <FiClock className="mr-2 text-[#666666]" size={16} />
@@ -274,15 +329,29 @@ export const ExamsPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
+                            exam.isStudentSpecific
+                              ? 'bg-purple-50 text-purple-600 border border-purple-200'
+                              : 'bg-blue-50 text-blue-600 border border-blue-200'
+                          }`}
+                        >
+                          {exam.isStudentSpecific ? 'Individual' : 'General'}
+                        </span>
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${getStatusBadgeColor(
-                            exam.status
+                            getExamStatus(exam)
                           )}`}
                         >
-                          {exam.status.charAt(0).toUpperCase() + exam.status.slice(1)}
+                          {getExamStatus(exam).charAt(0).toUpperCase() + getExamStatus(exam).slice(1)}
                         </span>
                       </td>
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm space-x-3">
                         <button
                           onClick={() => openModal(exam)}
@@ -308,7 +377,7 @@ export const ExamsPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-[#666666]">
+                    <td colSpan={6} className="px-6 py-12 text-center text-[#666666]">
                       <div className="flex flex-col items-center space-y-3">
                         <FiBook className="text-[#666666]" size={40} />
                         <p className="text-lg font-medium text-[#333333]">No exams created yet</p>
@@ -328,7 +397,6 @@ export const ExamsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Create/Edit Exam Modal */}
         {isModalOpen && (
           <div
             className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center p-4 z-50"
@@ -338,7 +406,6 @@ export const ExamsPage: React.FC = () => {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="flex justify-between items-center bg-[#DC143C] text-white p-6">
                 <h2 className="text-xl font-bold">
                   {isEditing ? 'Edit Exam' : 'Create New Exam'}
@@ -352,7 +419,6 @@ export const ExamsPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Form */}
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -450,7 +516,6 @@ export const ExamsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
                   <button
                     type="button"

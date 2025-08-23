@@ -65,15 +65,13 @@ interface CongratulationResponse {
   result: Answer;
 }
 
-// === Axios Instance ===
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Add auth token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
   if (token) {
@@ -82,7 +80,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -91,9 +88,6 @@ api.interceptors.response.use(
   }
 );
 
-// ========================
-// STUDENT API METHODS ✅ (Updated to match backend)
-// ========================
 export const apiService = {
   adminLogin: async (
     username: string,
@@ -116,7 +110,6 @@ export const apiService = {
     }
   },
 
-  // 🔐 Check Student Credentials
   checkStudentCredentials: async (
     username: string,
     password: string
@@ -137,7 +130,6 @@ export const apiService = {
     }
   },
 
-  // 🔐 Student Login (with DOB)
   studentLogin: async (
     username: string,
     password: string,
@@ -180,6 +172,7 @@ export const apiService = {
       throw error.response?.data || { message: error.message };
     }
   },
+
   resetPassword: async (
     token: string,
     newPassword: string,
@@ -200,7 +193,7 @@ export const apiService = {
       throw error.response?.data || { message: error.message };
     }
   },
-  // 📋 Get student exams
+
   getExams: async (): Promise<Exam[]> => {
     try {
       const response: AxiosResponse<ApiResponse<Exam[]>> = await api.get(
@@ -222,8 +215,7 @@ export const apiService = {
       throw error.response?.data || { message: error.message };
     }
   },
-  // ▶️ Start an exam
-  // Update the startExam method to return ExamData compatible object
+
   startExam: async (
     examId: string
   ): Promise<{
@@ -279,7 +271,6 @@ export const apiService = {
     }
   },
 
-  // ✅ Submit exam
   submitExam: async (payload: {
     examId: string;
     answers: { qId: string; selected: string }[];
@@ -302,8 +293,6 @@ export const apiService = {
     }
   },
 
-
-  // 📊 Get student results
   getResults: async (): Promise<Answer[]> => {
     try {
       const response: AxiosResponse<{ success: boolean; results: Answer[] }> =
@@ -315,9 +304,6 @@ export const apiService = {
     }
   },
 
-  // ========================
-  // ADMIN API METHODS 🔐 (Unchanged — preserved as-is)
-  // ========================
 
   getDashboardStats: async (): Promise<DashboardData> => {
     try {
@@ -427,10 +413,7 @@ export const apiService = {
     studentData: Partial<StudentData>
   ): Promise<User> => {
     try {
-      console.log("Updating student with ID:", id); // Debug log
-      console.log("Sending updateStudent payload:", studentData); // Debug log
       const response = await api.put(`/admin/students/${id}`, studentData);
-      console.log("Update response:", response.data); // Debug log
       return response.data.student || response.data;
     } catch (error: any) {
       console.error("Error updating student:", {
@@ -530,9 +513,6 @@ export const apiService = {
     }
   },
 
-  // ========================
-  // QUESTION METHODS
-  // ========================
   createQuestion: async (questionData: NewQuestion): Promise<Question> => {
     try {
       const response = await api.post("/admin/questions", questionData);
@@ -599,9 +579,6 @@ export const apiService = {
     }
   },
 
-  // ========================
-  // RESULT METHODS
-  // ========================
   getAllResults: async (): Promise<Answer[]> => {
     try {
       const response = await api.get("/admin/results");
@@ -637,7 +614,6 @@ export const apiService = {
     }
   },
 
-  // Add this method to your apiService
 
   getQuestionsByIds: async (questionIds: string[]): Promise<any[]> => {
     try {
@@ -702,9 +678,6 @@ export const apiService = {
     }
   },
 
-  // ========================
-  // UTILITY METHODS
-  // ========================
   healthCheck: async (): Promise<{ status: string; timestamp: string }> => {
     try {
       const response = await api.get("/health");
