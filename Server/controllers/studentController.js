@@ -312,7 +312,6 @@ const getExamQuestions = async (req, res) => {
   }
 };
 
-// Submit exam
 const submitExam = async (req, res) => {
   try {
     console.log('🚀 Starting submitExam function');
@@ -321,6 +320,7 @@ const submitExam = async (req, res) => {
 
     console.log('📋 Request data:', { examId, studentId, answersCount: answers?.length });
 
+    // Validate examId format
     if (!examId || !examId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -328,6 +328,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Validate answers array
     if (!answers || !Array.isArray(answers)) {
       return res.status(400).json({
         success: false,
@@ -335,6 +336,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Check exam existence
     const exam = await Exam.findById(examId).lean();
     if (!exam) {
       return res.status(404).json({
@@ -343,6 +345,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Check Answer document
     const answerDoc = await Answer.findOne({ studentId, examId }).lean();
     if (!answerDoc) {
       return res.status(400).json({
@@ -351,13 +354,16 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Check if already submitted
     if (answerDoc.status === 'submitted') {
       return res.status(400).json({
         success: false,
-        message: 'Exam has already been submitted',
+        message: 'Exam already submitted',
+        alreadySubmitted: true,
       });
     }
 
+    // Check if exam is in progress
     if (answerDoc.status !== 'in-progress') {
       return res.status(400).json({
         success: false,
@@ -365,6 +371,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Check time limit
     const startTime = new Date(answerDoc.startedAt);
     const now = new Date();
     const diffMinutes = Math.floor((now - startTime) / (1000 * 60));
@@ -375,6 +382,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Fetch questions
     const questionIds = answerDoc.generatedQuestions || exam.questions;
     const questions = await Question.find({ _id: { $in: questionIds } }).lean();
     if (questions.length === 0) {
@@ -384,6 +392,7 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Validate answers
     const questionMap = new Map(questions.map(q => [q._id.toString(), q]));
     const validAnswers = [];
     const validationDetails = [];
@@ -414,11 +423,13 @@ const submitExam = async (req, res) => {
       });
     }
 
+    // Calculate results
     const score = validationDetails.filter(d => d.isCorrect).length;
     const totalQuestions = questions.length;
     const percentage = Math.round((score / totalQuestions) * 100);
     const status = score >= 40 ? 'pass' : 'fail';
 
+    // Update Answer document
     const result = await Answer.updateOne(
       { studentId, examId, status: 'in-progress' },
       {
@@ -432,14 +443,25 @@ const submitExam = async (req, res) => {
           submittedAt: new Date(),
           validationDetails,
         },
-      }
+      },
+      { runValidators: true }
     );
 
     if (result.matchedCount === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Exam already submitted, not started, or invalid session',
+        message: 'Exam already submitted or invalid session',
+        alreadySubmitted: result.matchedCount === 0 && (await Answer.findOne({ studentId, examId, status: 'submitted' })) ? true : false,
       });
+    }
+
+    // Update Exam status to 'completed' for student-specific exams
+    if (exam.examType === 'student-specific' || exam.isStudentSpecific) {
+      await Exam.updateOne(
+        { _id: examId },
+        { $set: { status: 'completed' } }
+      );
+      console.log(`Updated exam ${examId} status to 'completed' for student-specific exam`);
     }
 
     res.json({
@@ -448,6 +470,7 @@ const submitExam = async (req, res) => {
       result: { score, totalQuestions, percentage, status },
     });
   } catch (err) {
+    console.error('Error in submitExam:', err);
     res.status(500).json({
       success: false,
       message: 'Internal server error during exam submission',

@@ -56,22 +56,18 @@ const createStudent = async (req, res) => {
       });
     }
 
-    const smsText = `Dear ${name.trim()},
-          Welcome to Crimson College.
+  const smsText = `Dear ${name.trim()},
+Welcome to Crimson College.
 
-          Account Details:
-          Username: ${username.trim()}
-          Password: ${password}
-          Program: ${program}
+Account Details:
+Username: ${username.trim()}, Password: ${password}, Program: ${program}
 
-          ${examTitle ? `Exam Details:
-          Title: ${examTitle.trim()}
-          Date: ${examDate}
-          Time: ${examTime}
-          Duration: ${examDuration} min
+${examTitle ? `Exam Details:
+Title: ${examTitle.trim()}, Date: ${examDate}, Time: ${examTime}
+Duration: ${examDuration} min, Date of birth :${dob || 'Not provided'}
 
-          ` : ''}Thank you,
-          CCT Team`;
+` : ''}Thank you,
+CCT Team`;
 
     const plainText = `
       Dear ${name.trim()},
@@ -228,21 +224,44 @@ const getAllStudents = async (req, res) => {
 const getAllExams = async (req, res) => {
   try {
     const exams = await Exam.find()
-      .populate("studentId", "name username email program")
-      .populate("questions")
-      .sort({ createdAt: -1 });
+      .populate({
+        path: 'studentId',
+        select: 'name username email program', 
+        model: 'User'
+      })
+      .sort({ date: -1 }); 
+
+    const transformedExams = exams.map(exam => {
+      const examObj = exam.toObject();
+      
+      if (exam.examType === 'student-specific' && exam.studentId) {
+        return {
+          ...examObj,
+          studentName: exam.studentId.name,
+          studentUsername: exam.studentId.username,
+          studentEmail: exam.studentId.email,
+          program: exam.studentId.program || examObj.program,
+          isStudentSpecific: true
+        };
+      } else {
+        return {
+          ...examObj,
+          isStudentSpecific: false
+        };
+      }
+    });
 
     res.status(200).json({
       success: true,
-      data: exams,
-      count: exams.length,
+      exams: transformedExams
     });
+    
   } catch (error) {
-    console.error("Error fetching exams:", error);
+    console.error('Error fetching exams:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch exams",
-      error: error.message,
+      message: 'Failed to fetch exams',
+      error: error.message
     });
   }
 };
@@ -1016,29 +1035,80 @@ const updateStudent = async (req, res) => {
 };
 
 const deleteStudent = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
 
-    await Exam.deleteMany({ assignedTo: id });
-    await Answer.deleteMany({ studentId: id });
-    const deletedStudent = await User.findByIdAndDelete(id);
-
-    if (!deletedStudent) {
-      return res.status(404).json({
+    // Validate ObjectId
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
         success: false,
-        message: "Student not found",
+        message: 'Invalid student ID format',
       });
     }
 
+    // Check if student exists
+    const student = await User.findById(id).session(session);
+    if (!student) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found',
+      });
+    }
+
+    // Delete student-specific Exam documents
+    // Fix: Use examType instead of isStudentSpecific
+    const examDeleteResult = await Exam.deleteMany(
+      { studentId: id, examType: 'student-specific' },
+      { session }
+    );
+
+    // Delete Answer documents
+    const answerDeleteResult = await Answer.deleteMany(
+      { studentId: id },
+      { session }
+    );
+
+    // Delete the student
+    await User.findByIdAndDelete(id, { session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log('Student deleted:', {
+      studentId: id,
+      deletedExams: examDeleteResult.deletedCount,
+      deletedAnswers: answerDeleteResult.deletedCount,
+    });
+
     res.status(200).json({
       success: true,
-      message: "Student and associated data deleted successfully",
+      message: 'Student and associated data deleted successfully',
+      data: {
+        studentId: id,
+        deletedExams: examDeleteResult.deletedCount,
+        deletedAnswers: answerDeleteResult.deletedCount,
+      },
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error('Error deleting student:', {
+      studentId: req.params.id, // Use req.params.id since id might be undefined here
+      error: error.message,
+    });
+
     res.status(500).json({
       success: false,
-      message: "Failed to delete student",
-      error: error.message,
+      message: 'Failed to delete student due to an internal server error',
     });
   }
 };
