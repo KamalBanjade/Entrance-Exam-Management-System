@@ -2,7 +2,7 @@ const Exam = require("../models/Exam");
 const Question = require("../models/Question");
 const Answer = require("../models/Answer");
 const User = require("../models/User");
-const moment = require('moment');
+const moment = require('moment-timezone'); // Replace regular moment
 const shuffleArray = require('shuffle-array');
 
 // Get authenticated user's profile
@@ -21,7 +21,7 @@ const getProfile = async (req, res) => {
 const startExam = async (req, res) => {
   try {
     const { examId } = req.params;
-    const studentId = req.user._id; 
+    const studentId = req.user._id;
     const studentProgram = req.user.program;
 
     if (!studentId) {
@@ -30,7 +30,7 @@ const startExam = async (req, res) => {
         message: 'Student ID not found in request',
       });
     }
-    
+
     if (!examId || !examId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -53,8 +53,9 @@ const startExam = async (req, res) => {
       });
     }
 
-    const examDate = moment(exam.date).format('YYYY-MM-DD');
-    const examTime = exam.time instanceof Date ? moment(exam.time).format('HH:mm') : exam.time;
+    const examDate = moment.tz(exam.date, 'Asia/Kathmandu').format('YYYY-MM-DD');
+    const examTime = exam.time instanceof Date ?
+      moment.tz(exam.time, 'Asia/Kathmandu').format('HH:mm') : exam.time;
     const duration = parseInt(exam.duration, 10);
 
     if (!examDate.match(/^\d{4}-\d{2}-\d{2}$/) || !examTime.match(/^\d{2}:\d{2}$/)) {
@@ -71,7 +72,8 @@ const startExam = async (req, res) => {
       });
     }
 
-    const examDateTime = moment(`${examDate} ${examTime}`, 'YYYY-MM-DD HH:mm');
+    // 🔥 FIX: Use Asia/Kathmandu timezone consistently in backend
+    const examDateTime = moment.tz(`${examDate} ${examTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Kathmandu');
     if (!examDateTime.isValid()) {
       return res.status(400).json({
         success: false,
@@ -79,15 +81,34 @@ const startExam = async (req, res) => {
       });
     }
 
-    const now = moment();
+    const now = moment.tz('Asia/Kathmandu'); // 🔥 Changed to Asia/Kathmandu
     const examEndTime = examDateTime.clone().add(duration, 'minutes');
     const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
     const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
+
+    console.log('⏰ Backend time validation (Asia/Kathmandu):', {
+      examTitle: exam.title,
+      currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+      examStart: examDateTime.format('YYYY-MM-DD HH:mm:ss'),
+      examEnd: examEndTime.format('YYYY-MM-DD HH:mm:ss'),
+      startBuffer: examStartWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+      endBuffer: examEndWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+      isAfterStart: now.isAfter(examStartWithBuffer),
+      isBeforeEnd: now.isBefore(examEndWithBuffer),
+      isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer),
+      timezone: 'Asia/Kathmandu'
+    });
 
     if (now.isBefore(examStartWithBuffer)) {
       return res.status(403).json({
         success: false,
         message: `Your exam is scheduled for ${examDateTime.format('MMM DD, YYYY h:mm A')}. Please wait until the scheduled time.`,
+        debug: {
+          currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+          examStart: examStartWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+          timezone: 'Asia/Kathmandu',
+          reason: 'too_early'
+        }
       });
     }
 
@@ -95,6 +116,12 @@ const startExam = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: `The exam time window has expired. It ended at ${examEndTime.format('MMM DD, YYYY h:mm A')}.`,
+        debug: {
+          currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+          examEnd: examEndWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+          timezone: 'Asia/Kathmandu',
+          reason: 'too_late'
+        }
       });
     }
 
@@ -122,7 +149,7 @@ const startExam = async (req, res) => {
 
     // Fetch and shuffle 25 questions per category
     const categories = ['Verbal Ability', 'Quantitative Aptitude', 'Logical Reasoning', 'General Awareness'];
-    
+
     const questionsByCategory = await Promise.all(
       categories.map(async (category) => {
         return await Question.find({
@@ -155,7 +182,7 @@ const startExam = async (req, res) => {
       }
       return shuffled;
     };
-    
+
     const shuffledQuestions = questionsByCategory.map(shuffle).flat();
 
     const answerDoc = new Answer({
@@ -163,13 +190,13 @@ const startExam = async (req, res) => {
       examId,
       answers: [],
       generatedQuestions: shuffledQuestions.map(q => q._id),
-      startedAt: now.toDate(),
+      startedAt: now.toDate(), // This will be in Asia/Kathmandu time
       totalQuestions: shuffledQuestions.length,
       status: 'in-progress',
     });
 
     await answerDoc.save();
-    
+
     res.json({
       success: true,
       message: 'Exam started successfully',
@@ -192,7 +219,6 @@ const startExam = async (req, res) => {
   }
 };
 
-// Get available exams
 const getExams = async (req, res) => {
   try {
     const studentId = req.user._id;
@@ -206,12 +232,12 @@ const getExams = async (req, res) => {
       $and: [
         {
           $or: [
-            { studentId: studentId }, 
-            { assignedTo: studentId }, 
-            { 
+            { studentId: studentId },
+            { assignedTo: studentId },
+            {
               $and: [
-                { examType: 'general' }, 
-                { program: studentProgram } 
+                { examType: 'general' },
+                { program: studentProgram }
               ]
             }
           ]
@@ -219,13 +245,14 @@ const getExams = async (req, res) => {
         { status: { $ne: 'cancelled' } }
       ]
     })
-    .populate('questions', '_id')
-    .lean();
+      .populate('questions', '_id')
+      .lean();
 
     console.log('📊 Filtered exams for student:', exams.length);
 
     const formattedExams = exams.map(exam => {
-      const formattedDate = moment(exam.date).format('YYYY-MM-DD');
+      // 🔥 Use Asia/Kathmandu timezone for date formatting
+      const formattedDate = moment.tz(exam.date, 'Asia/Kathmandu').format('YYYY-MM-DD');
       const isSubmitted = submittedExamIds.has(exam._id.toString());
 
       return {
@@ -386,10 +413,10 @@ const submitExam = async (req, res) => {
       });
     }
 
-    // Check time limit
-    const startTime = new Date(answerDoc.startedAt);
-    const now = new Date();
-    const diffMinutes = Math.floor((now - startTime) / (1000 * 60));
+    const startTime = moment.tz(answerDoc.startedAt, 'Asia/Kathmandu');
+    const now = moment.tz('Asia/Kathmandu');
+    const diffMinutes = now.diff(startTime, 'minutes');
+
     if (diffMinutes > exam.duration) {
       return res.status(400).json({
         success: false,

@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, Calendar, Clock } from 'lucide-react';
 import SidePanel from './SidePanel';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import type { Exam, User } from '../types/index';
 import { apiService } from '../services/apiService';
 
@@ -28,11 +28,12 @@ const StudentDashboard: React.FC = () => {
 const fetchExams = async () => {
   try {
     const data = await apiService.getExams();
-    // 🔥 FIX: Use local time instead of UTC
-    const now = moment();
+    // 🔥 FIX: Use Asia/Kathmandu timezone consistently
+    const now = moment.tz('Asia/Kathmandu');
     
     const processedExams = data.map((exam: Exam) => {
-      const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+      // 🔥 FIX: Also use Asia/Kathmandu timezone for exam date/time parsing
+      const examDateTime = moment.tz(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kathmandu');
       const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
       
       // 5 minute buffer
@@ -42,11 +43,14 @@ const fetchExams = async () => {
       let displayStatus: 'upcoming' | 'available' | 'completed' | 'expired';
       let canStart = false;
 
-      console.log(`Exam "${exam.title}" LOCAL TIME:`, {
+      console.log(`Exam "${exam.title}" ASIA/KATHMANDU TIME:`, {
         currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
         examStart: examDateTime.format('YYYY-MM-DD HH:mm:ss'),
         examEnd: examEndTime.format('YYYY-MM-DD HH:mm:ss'),
-        canStart: now.isBetween(examStartWithBuffer, examEndWithBuffer)
+        startBuffer: examStartWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+        endBuffer: examEndWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+        canStart: now.isBetween(examStartWithBuffer, examEndWithBuffer),
+        timezone: 'Asia/Kathmandu'
       });
 
       if (!examDateTime.isValid()) {
@@ -80,45 +84,64 @@ const fetchExams = async () => {
     setLoading(false);
   }
 };
-  useEffect(() => {
-    const fetchData = async () => {
-      await fetchProfile();
-      await fetchExams();
-    };
-    fetchData();
-    const interval = setInterval(fetchExams, 30000);
-    return () => clearInterval(interval);
-  }, [navigate]);
 
+useEffect(() => {
+  const fetchData = async () => {
+    await fetchProfile();
+    await fetchExams();
+  };
+  fetchData();
+  const interval = setInterval(fetchExams, 30000);
+  return () => clearInterval(interval);
+}, [navigate]);
 
 const handleStartExam = async (exam: Exam) => {
-  const now = moment(); 
-  const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+  // 🔥 FIX: Use Asia/Kathmandu timezone consistently
+  const now = moment.tz('Asia/Kathmandu'); 
+  const examDateTime = moment.tz(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kathmandu');
   const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
   const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
   const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
 
-  console.log('🚀 Starting exam validation (LOCAL TIME):', {
+  console.log('🚀 Starting exam validation (ASIA/KATHMANDU TIME):', {
     examTitle: exam.title,
     examId: exam._id,
     canStart: exam.canStart,
     displayStatus: exam.displayStatus,
     currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+    examStart: examDateTime.format('YYYY-MM-DD HH:mm:ss'),
+    examEnd: examEndTime.format('YYYY-MM-DD HH:mm:ss'),
+    startBuffer: examStartWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
+    endBuffer: examEndWithBuffer.format('YYYY-MM-DD HH:mm:ss'),
     examWindow: `${examStartWithBuffer.format('HH:mm')} - ${examEndWithBuffer.format('HH:mm')}`,
-    isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer)
+    isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer),
+    timezone: 'Asia/Kathmandu'
   });
 
-  if (!exam.canStart) {
+  // 🔥 ADDITIONAL: Real-time validation to double-check
+  const realTimeCanStart = now.isBetween(examStartWithBuffer, examEndWithBuffer) && 
+                          exam.displayStatus !== 'completed' && 
+                          exam.displayStatus !== 'expired';
+
+  console.log('🔄 Real-time validation:', {
+    storedCanStart: exam.canStart,
+    realTimeCanStart: realTimeCanStart,
+    match: exam.canStart === realTimeCanStart
+  });
+
+  if (!exam.canStart || !realTimeCanStart) {
     console.warn('❌ Exam cannot be started:', {
       reason: exam.displayStatus,
       currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
-      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss')
+      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss'),
+      storedCanStart: exam.canStart,
+      realTimeCanStart: realTimeCanStart
     });
     
     let message = 'Exam not available yet.';
-    if (exam.displayStatus === 'upcoming') {
+    if (exam.displayStatus === 'upcoming' || now.isBefore(examStartWithBuffer)) {
       message = `Exam starts at ${examDateTime.format('MMM DD, YYYY h:mm A')}. Please wait.`;
-    } else if (exam.displayStatus === 'expired') {
+    } else if (exam.displayStatus === 'expired' || now.isAfter(examEndWithBuffer)) {
       message = `Exam has expired. It ended at ${examEndTime.format('MMM DD, YYYY h:mm A')}.`;
     } else if (exam.displayStatus === 'completed') {
       message = 'Exam has already been completed.';
@@ -150,7 +173,9 @@ const handleStartExam = async (exam: Exam) => {
       console.error('403 Error details:', {
         message: errorMessage,
         debugInfo: error.response?.data?.debug,
-        status: error.response?.status
+        status: error.response?.status,
+        frontendTime: now.format('YYYY-MM-DD HH:mm:ss'),
+        timezone: 'Asia/Kathmandu'
       });
       toast.error(errorMessage);
     } else if (error.response?.status === 401) {
@@ -161,7 +186,6 @@ const handleStartExam = async (exam: Exam) => {
     }
   }
 };
-
   const formatDate = (dateString: string) => moment(dateString).format('MMM DD, YYYY');
   const formatTime = (timeString: string) => moment(timeString, 'HH:mm').format('h:mm A');
   const calculateDueTime = (startTime: string, duration: string) => {
