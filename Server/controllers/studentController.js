@@ -18,7 +18,6 @@ const getProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 const startExam = async (req, res) => {
   try {
     const { examId } = req.params;
@@ -31,6 +30,7 @@ const startExam = async (req, res) => {
         message: 'Student ID not found in request',
       });
     }
+    
     if (!examId || !examId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -52,6 +52,7 @@ const startExam = async (req, res) => {
         message: 'This exam is not for your program',
       });
     }
+
     const examDate = moment(exam.date).format('YYYY-MM-DD');
     const examTime = exam.time instanceof Date ? moment(exam.time).format('HH:mm') : exam.time;
     const duration = parseInt(exam.duration, 10);
@@ -80,15 +81,17 @@ const startExam = async (req, res) => {
 
     const now = moment();
     const examEndTime = examDateTime.clone().add(duration, 'minutes');
+    const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
+    const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
 
-    if (now.isBefore(examDateTime)) {
+    if (now.isBefore(examStartWithBuffer)) {
       return res.status(403).json({
         success: false,
         message: `Your exam is scheduled for ${examDateTime.format('MMM DD, YYYY h:mm A')}. Please wait until the scheduled time.`,
       });
     }
 
-    if (now.isAfter(examEndTime)) {
+    if (now.isAfter(examEndWithBuffer)) {
       return res.status(403).json({
         success: false,
         message: `The exam time window has expired. It ended at ${examEndTime.format('MMM DD, YYYY h:mm A')}.`,
@@ -119,6 +122,7 @@ const startExam = async (req, res) => {
 
     // Fetch and shuffle 25 questions per category
     const categories = ['Verbal Ability', 'Quantitative Aptitude', 'Logical Reasoning', 'General Awareness'];
+    
     const questionsByCategory = await Promise.all(
       categories.map(async (category) => {
         return await Question.find({
@@ -129,7 +133,7 @@ const startExam = async (req, res) => {
         })
           .select('-correctAnswer')
           .limit(25)
-          .lean(); // ✅ lean + faster
+          .lean();
       })
     );
 
@@ -142,19 +146,30 @@ const startExam = async (req, res) => {
       }
     }
 
-    const shuffledQuestions = questionsByCategory.map(shuffleArray).flat();
+    // Simple shuffle function if not available
+    const shuffle = (array) => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+    
+    const shuffledQuestions = questionsByCategory.map(shuffle).flat();
 
     const answerDoc = new Answer({
-      studentId: studentId, // ✅ Now this will be properly set
+      studentId: studentId,
       examId,
       answers: [],
       generatedQuestions: shuffledQuestions.map(q => q._id),
       startedAt: now.toDate(),
       totalQuestions: shuffledQuestions.length,
-      status: 'in-progress', // ✅ This matches your enum
+      status: 'in-progress',
     });
 
     await answerDoc.save();
+    
     res.json({
       success: true,
       message: 'Exam started successfully',

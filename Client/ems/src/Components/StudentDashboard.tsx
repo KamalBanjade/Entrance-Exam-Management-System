@@ -25,47 +25,61 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const fetchExams = async () => {
-    try {
-      const data = await apiService.getExams();
-      const now = moment();
-      const processedExams = data.map((exam: Exam) => {
-        const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
-        const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
-        let displayStatus: 'upcoming' | 'available' | 'completed' | 'expired';
-        let canStart = false;
+const fetchExams = async () => {
+  try {
+    const data = await apiService.getExams();
+    // 🔥 FIX: Use local time instead of UTC
+    const now = moment();
+    
+    const processedExams = data.map((exam: Exam) => {
+      const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+      const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
+      
+      // 5 minute buffer
+      const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
+      const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
+      
+      let displayStatus: 'upcoming' | 'available' | 'completed' | 'expired';
+      let canStart = false;
 
-        if (!examDateTime.isValid()) {
-          displayStatus = 'upcoming';
-          canStart = false;
-        } else if (exam.status === 'completed') {
-          displayStatus = 'completed';
-          canStart = false;
-        } else if (exam.status === 'cancelled') {
-          displayStatus = 'expired';
-          canStart = false;
-        } else if (now.isBefore(examDateTime)) {
-          displayStatus = 'upcoming';
-          canStart = false;
-        } else if (now.isAfter(examEndTime)) {
-          displayStatus = 'expired';
-          canStart = false;
-        } else {
-          displayStatus = 'available';
-          canStart = true;
-        }
-
-        return { ...exam, displayStatus, canStart };
+      console.log(`Exam "${exam.title}" LOCAL TIME:`, {
+        currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+        examStart: examDateTime.format('YYYY-MM-DD HH:mm:ss'),
+        examEnd: examEndTime.format('YYYY-MM-DD HH:mm:ss'),
+        canStart: now.isBetween(examStartWithBuffer, examEndWithBuffer)
       });
-      setExams(processedExams);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to load exams');
-      if (error.response?.status === 401) navigate('/login');
-    } finally {
-      setLoading(false);
-    }
-  };
 
+      if (!examDateTime.isValid()) {
+        displayStatus = 'upcoming';
+        canStart = false;
+      } else if (exam.status === 'completed') {
+        displayStatus = 'completed';
+        canStart = false;
+      } else if (exam.status === 'cancelled') {
+        displayStatus = 'expired';
+        canStart = false;
+      } else if (now.isBefore(examStartWithBuffer)) {
+        displayStatus = 'upcoming';
+        canStart = false;
+      } else if (now.isAfter(examEndWithBuffer)) {
+        displayStatus = 'expired';
+        canStart = false;
+      } else {
+        displayStatus = 'available';
+        canStart = true;
+      }
+
+      return { ...exam, displayStatus, canStart };
+    });
+    
+    setExams(processedExams);
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to load exams');
+    if (error.response?.status === 401) navigate('/login');
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     const fetchData = async () => {
       await fetchProfile();
@@ -77,24 +91,77 @@ const StudentDashboard: React.FC = () => {
   }, [navigate]);
 
 
-  const handleStartExam = async (exam: Exam) => {
-    if (!exam.canStart) {
-      toast.error('Exam not available yet.');
-      return;
+const handleStartExam = async (exam: Exam) => {
+  // 🔥 Additional frontend validation with better logging
+  const now = moment.utc();
+  const examDateTime = moment.utc(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+  const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
+  const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
+  const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
+
+  console.log('🚀 Starting exam validation:', {
+    examTitle: exam.title,
+    examId: exam._id,
+    canStart: exam.canStart,
+    displayStatus: exam.displayStatus,
+    currentTime: now.format('YYYY-MM-DD HH:mm:ss UTC'),
+    examWindow: `${examStartWithBuffer.format('HH:mm')} - ${examEndWithBuffer.format('HH:mm')}`,
+    isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer)
+  });
+
+  if (!exam.canStart) {
+    console.warn('❌ Exam cannot be started:', {
+      reason: exam.displayStatus,
+      currentTime: now.format('YYYY-MM-DD HH:mm:ss UTC'),
+      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss UTC')
+    });
+    
+    let message = 'Exam not available yet.';
+    if (exam.displayStatus === 'upcoming') {
+      message = `Exam starts at ${examDateTime.format('MMM DD, YYYY h:mm A')}. Please wait.`;
+    } else if (exam.displayStatus === 'expired') {
+      message = `Exam has expired. It ended at ${examEndTime.format('MMM DD, YYYY h:mm A')}.`;
+    } else if (exam.displayStatus === 'completed') {
+      message = 'Exam has already been completed.';
     }
-    try {
-      const response = await apiService.startExam(exam._id);
-      if (response.success) {
-        toast.success('Exam started! Good luck!');
-        navigate(`/exam/${exam._id}`);
-      } else {
-        toast.error(response.message);
-      }
-    } catch (error: any) {
-      toast.error(error.message);
-      if (error.response?.status === 401) navigate('/login');
+    
+    toast.error(message);
+    return;
+  }
+
+  try {
+    console.log('📤 Sending start exam request...');
+    const response = await apiService.startExam(exam._id);
+    
+    console.log('📥 Start exam response:', response);
+    
+    if (response.success) {
+      toast.success('Exam started! Good luck!');
+      navigate(`/exam/${exam._id}`);
+    } else {
+      console.error('❌ Start exam failed:', response);
+      toast.error(response.message || 'Failed to start exam');
     }
-  };
+  } catch (error: any) {
+    console.error('❌ Start exam error:', error);
+    
+    // 🔥 Better error handling with more specific messages
+    if (error.response?.status === 403) {
+      const errorMessage = error.response?.data?.message || 'Exam is not available at this time';
+      console.error('403 Error details:', {
+        message: errorMessage,
+        debugInfo: error.response?.data?.debug,
+        status: error.response?.status
+      });
+      toast.error(errorMessage);
+    } else if (error.response?.status === 401) {
+      toast.error('Authentication failed. Please login again.');
+      navigate('/login');
+    } else {
+      toast.error(error.message || 'Failed to start exam. Please try again.');
+    }
+  }
+};
 
   const formatDate = (dateString: string) => moment(dateString).format('MMM DD, YYYY');
   const formatTime = (timeString: string) => moment(timeString, 'HH:mm').format('h:mm A');
