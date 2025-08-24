@@ -67,10 +67,14 @@ interface CongratulationResponse {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: 10000, // 10 second timeout
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// Log the API base URL for debugging
+console.log('🌐 API Base URL:', import.meta.env.VITE_API_BASE_URL);
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("authToken");
@@ -89,6 +93,21 @@ api.interceptors.response.use(
 );
 
 export const apiService = {
+  // Add validateToken method
+  validateToken: async (): Promise<{
+    success: boolean;
+    message: string;
+    user?: User;
+  }> => {
+    try {
+      const response = await api.get("/auth/validate-token");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error validating token:", error);
+      throw error.response?.data || { message: error.message };
+    }
+  },
+
   adminLogin: async (
     username: string,
     password: string
@@ -152,6 +171,7 @@ export const apiService = {
       throw error.response?.data || { message: error.message };
     }
   },
+
   forgotPassword: async (
     email: string,
     username: string,

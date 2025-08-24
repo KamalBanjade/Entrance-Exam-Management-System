@@ -2,7 +2,6 @@ import { useState, useEffect, type FC, Component } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import axios from 'axios';
 import {DashboardLayout} from './Components/DashboardLayout';
 import LoginPortal from './Components/LoginPortal';
 import { DashboardPage } from './Components/DashboardPage';
@@ -14,6 +13,7 @@ import QuestionPage from './Components/QuestionsPage';
 import StudentDashboard from './Components/StudentDashboard';
 import ExamInterface from './Components/ExamInterface';
 import Profile from './Components/Profile';
+import { apiService } from './services/apiService';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -90,11 +90,19 @@ const useAuthValidation = () => {
     const validateToken = async () => {
       setIsLoading(true);
 
+      // Get data from localStorage
       const token = localStorage.getItem('authToken');
       const adminData = localStorage.getItem('admin');
       const studentData = localStorage.getItem('student');
 
+      console.log('🔍 Validating token:', { 
+        hasToken: !!token, 
+        hasAdminData: !!adminData, 
+        hasStudentData: !!studentData 
+      });
+
       if (!token) {
+        console.log('❌ No token found');
         setIsAuthenticated(false);
         setUserRole(null);
         setIsLoading(false);
@@ -102,24 +110,28 @@ const useAuthValidation = () => {
       }
 
       try {
-        const response = await axios.get('http://localhost:5000/api/auth/validate-token', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // Use your apiService instead of direct axios call
+        const response = await apiService.validateToken();
 
-        if (response.data.success) {
+        console.log('✅ Token validation response:', response);
+
+        if (response.success) {
           const detectedRole = adminData ? 'admin' : studentData ? 'student' : null;
+          
           if (!detectedRole) {
-            console.warn('Token valid but no role detected, clearing data');
+            console.warn('⚠️ Token valid but no role detected, clearing data');
             localStorage.removeItem('authToken');
             localStorage.removeItem('admin');
             localStorage.removeItem('student');
             setIsAuthenticated(false);
             setUserRole(null);
           } else {
+            console.log('✅ Authentication successful:', detectedRole);
             setUserRole(detectedRole);
             setIsAuthenticated(true);
           }
         } else {
+          console.log('❌ Token validation failed:', response);
           localStorage.removeItem('authToken');
           localStorage.removeItem('admin');
           localStorage.removeItem('student');
@@ -127,23 +139,56 @@ const useAuthValidation = () => {
           setUserRole(null);
         }
       } catch (error: any) {
-        console.error('Token validation error:', {
+        console.error('❌ Token validation error:', {
           message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
+          status: error.status,
+          data: error.data,
         });
         
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('admin');
-        localStorage.removeItem('student');
-        setIsAuthenticated(false);
-        setUserRole(null);
+        // Only clear localStorage for authentication errors (401/403)
+        // For network errors, try to maintain session temporarily
+        if (error.status === 401 || error.status === 403 || error.message?.includes('401') || error.message?.includes('403')) {
+          console.log('🔒 Authentication error, clearing localStorage');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('admin');
+          localStorage.removeItem('student');
+          setIsAuthenticated(false);
+          setUserRole(null);
+        } else {
+          // For network errors, try to maintain session temporarily
+          console.log('🌐 Network error, attempting to maintain session');
+          const detectedRole = adminData ? 'admin' : studentData ? 'student' : null;
+          if (detectedRole && token) {
+            console.log('⏱️ Maintaining session temporarily due to network error');
+            setUserRole(detectedRole);
+            setIsAuthenticated(true);
+            
+            // Retry validation after a delay
+            setTimeout(() => {
+              validateToken();
+            }, 5000);
+          } else {
+            setIsAuthenticated(false);
+            setUserRole(null);
+          }
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     validateToken();
+
+    // Optional: Set up periodic token validation
+    const intervalId = setInterval(() => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        console.log('🔄 Periodic token validation');
+        validateToken();
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    return () => clearInterval(intervalId);
   }, []);
 
   return { isAuthenticated, setIsAuthenticated, userRole, setUserRole, isLoading };
