@@ -20,9 +20,12 @@ interface ForgotPasswordData {
 interface LoginPortalProps {
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
   setUserRole: React.Dispatch<React.SetStateAction<'admin' | 'student' | null>>;
+  onSuccessfulLogin: (token: string, userData: any, role: 'admin' | 'student') => void;
 }
 
-const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRole }) => {
+const LoginPortal: React.FC<LoginPortalProps> = ({ 
+  onSuccessfulLogin 
+}) => {
   const [formData, setFormData] = useState<LoginFormData>({
     username: '',
     password: '',
@@ -128,17 +131,15 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
         response = await apiService.adminLogin(formData.username, formData.password);
       }
 
-      if (response.success) {
-        localStorage.setItem('authToken', response.token || '');
-        localStorage.setItem(detectedRole, JSON.stringify(response.user));
-
-        setIsAuthenticated(true);
-        setUserRole(detectedRole);
+     if (response.success) {
+        // Use the new authentication handler
+        onSuccessfulLogin(response.token || '', response.user, detectedRole);
+        
         toast.success(`Welcome back, ${detectedRole}!`);
 
         const redirectPath = detectedRole === 'student' ? '/student-dashboard' : '/admin-dashboard';
         navigate(redirectPath);
-      } else {
+      }else {
         setError(response.message || 'Login failed');
         toast.error(response.message || 'Login failed');
       }
@@ -204,7 +205,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     setShowDateOfBirth(false);
     setError('');
   };
-
   return (
     <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

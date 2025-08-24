@@ -92,19 +92,19 @@ const fetchExams = async () => {
 
 
 const handleStartExam = async (exam: Exam) => {
-  // 🔥 Additional frontend validation with better logging
-  const now = moment.utc();
-  const examDateTime = moment.utc(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
+  // 🔥 Use consistent LOCAL TIME (same as fetchExams and backend)
+  const now = moment(); // Changed from moment.utc() to moment()
+  const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
   const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
   const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
   const examEndWithBuffer = examEndTime.clone().add(5, 'minutes');
 
-  console.log('🚀 Starting exam validation:', {
+  console.log('🚀 Starting exam validation (LOCAL TIME):', {
     examTitle: exam.title,
     examId: exam._id,
     canStart: exam.canStart,
     displayStatus: exam.displayStatus,
-    currentTime: now.format('YYYY-MM-DD HH:mm:ss UTC'),
+    currentTime: now.format('YYYY-MM-DD HH:mm:ss'), // Removed UTC
     examWindow: `${examStartWithBuffer.format('HH:mm')} - ${examEndWithBuffer.format('HH:mm')}`,
     isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer)
   });
@@ -112,8 +112,8 @@ const handleStartExam = async (exam: Exam) => {
   if (!exam.canStart) {
     console.warn('❌ Exam cannot be started:', {
       reason: exam.displayStatus,
-      currentTime: now.format('YYYY-MM-DD HH:mm:ss UTC'),
-      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss UTC')
+      currentTime: now.format('YYYY-MM-DD HH:mm:ss'), // Removed UTC
+      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss') // Removed UTC
     });
     
     let message = 'Exam not available yet.';

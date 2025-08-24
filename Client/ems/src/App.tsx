@@ -94,63 +94,137 @@ const useAuthValidation = () => {
       const adminData = localStorage.getItem('admin');
       const studentData = localStorage.getItem('student');
 
+      // If no token, set as unauthenticated
       if (!token) {
+        console.log('No token found');
         setIsAuthenticated(false);
         setUserRole(null);
         setIsLoading(false);
         return;
       }
 
+      // If token exists but no role data, still try to validate
+      const detectedRole = adminData ? 'admin' : studentData ? 'student' : null;
+      
       try {
+        console.log('Validating token...');
         const response = await axios.get('http://localhost:5000/api/auth/validate-token', {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000, // 10 second timeout
         });
 
+        console.log('Token validation response:', response.data);
+
         if (response.data.success) {
-          const detectedRole = adminData ? 'admin' : studentData ? 'student' : null;
-          if (!detectedRole) {
-            console.warn('Token valid but no role detected, clearing data');
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('admin');
-            localStorage.removeItem('student');
-            setIsAuthenticated(false);
-            setUserRole(null);
-          } else {
-            setUserRole(detectedRole);
+          // If token is valid but no role detected, try to get role from response
+          const roleFromResponse = response.data.role || response.data.user?.role;
+          const finalRole = detectedRole || roleFromResponse;
+
+          if (finalRole) {
+            console.log('Authentication successful, role:', finalRole);
+            setUserRole(finalRole);
             setIsAuthenticated(true);
+            
+            // Update localStorage if role was missing
+            if (!detectedRole && roleFromResponse) {
+              if (roleFromResponse === 'admin') {
+                localStorage.setItem('admin', JSON.stringify(response.data.user || {}));
+              } else if (roleFromResponse === 'student') {
+                localStorage.setItem('student', JSON.stringify(response.data.user || {}));
+              }
+            }
+          } else {
+            console.warn('Token valid but no role detected anywhere');
+            clearAuthData();
           }
         } else {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('admin');
-          localStorage.removeItem('student');
-          setIsAuthenticated(false);
-          setUserRole(null);
+          console.warn('Token validation failed:', response.data);
+          clearAuthData();
         }
       } catch (error: any) {
         console.error('Token validation error:', {
           message: error.message,
           status: error.response?.status,
           data: error.response?.data,
+          code: error.code,
         });
         
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('admin');
-        localStorage.removeItem('student');
-        setIsAuthenticated(false);
-        setUserRole(null);
+        // Don't clear auth data for network errors - might be temporary
+        if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED' || !error.response) {
+          console.warn('Network error during validation, keeping existing auth state');
+          // Use existing localStorage data if available
+          if (detectedRole) {
+            setUserRole(detectedRole);
+            setIsAuthenticated(true);
+          } else {
+            clearAuthData();
+          }
+        } else if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log('Token expired or unauthorized, clearing auth data');
+          clearAuthData();
+        } else {
+          // For other errors, try to preserve auth state if we have role data
+          if (detectedRole) {
+            console.warn('Validation error but keeping auth state due to existing role data');
+            setUserRole(detectedRole);
+            setIsAuthenticated(true);
+          } else {
+            clearAuthData();
+          }
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
+    const clearAuthData = () => {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('admin');
+      localStorage.removeItem('student');
+      setIsAuthenticated(false);
+      setUserRole(null);
+    };
+
     validateToken();
   }, []);
 
-  return { isAuthenticated, setIsAuthenticated, userRole, setUserRole, isLoading };
+  const handleSuccessfulLogin = (token: string, userData: any, role: 'admin' | 'student') => {
+    console.log('Setting up authentication after successful login:', { role, userData });
+    
+    // Store in localStorage
+    localStorage.setItem('authToken', token);
+    if (role === 'admin') {
+      localStorage.setItem('admin', JSON.stringify(userData));
+      localStorage.removeItem('student'); // Clean up other role
+    } else {
+      localStorage.setItem('student', JSON.stringify(userData));
+      localStorage.removeItem('admin'); // Clean up other role
+    }
+    
+    // Update state
+    setIsAuthenticated(true);
+    setUserRole(role);
+  };
+
+  return { 
+    isAuthenticated, 
+    setIsAuthenticated, 
+    userRole, 
+    setUserRole, 
+    isLoading,
+    handleSuccessfulLogin
+  };
 };
 
 const App: FC = () => {
-  const { isAuthenticated, setIsAuthenticated, userRole, setUserRole, isLoading } = useAuthValidation();
+  const { 
+    isAuthenticated, 
+    setIsAuthenticated, 
+    userRole, 
+    setUserRole, 
+    isLoading,
+    handleSuccessfulLogin
+  } = useAuthValidation();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -185,7 +259,8 @@ const App: FC = () => {
               ) : (
                 <LoginPortal 
                   setIsAuthenticated={setIsAuthenticated} 
-                  setUserRole={setUserRole} 
+                  setUserRole={setUserRole}
+                  onSuccessfulLogin={handleSuccessfulLogin}
                 />
               )
             }
