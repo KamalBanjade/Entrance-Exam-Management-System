@@ -88,14 +88,14 @@ export interface StudentData {
   name: string;
   username: string;
   password?: string;
-  dob: string;
-  email: string;
-  phone: string;
+  dob?: string;
+  email?: string;
+  phone?: string;
   program: string;
   examTitle?: string;
   examDate?: string;
   examTime?: string;
-  examDuration: number;
+  examDuration?: number;
   role: "student";
 }
 
@@ -115,8 +115,8 @@ export interface User {
   name: string;
   username: string;
   dob?: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   program: "BCSIT" | "BCA" | "BBA" | null;
   createdAt: string;
   exam?: {
@@ -131,14 +131,13 @@ export interface NewStudent {
   name: string;
   username: string;
   password: string;
-  dob: string;
-  email: string;
-  phone: string;
-  program: "BSCIT" | "BCA" | "BBA" | "";
-  examTitle: string;
-  examDate: string;
-  examTime: string;
-  examDuration: number;
+  dob?: string;
+  email?: string;
+  phone?: string;
+  program: "BCSIT" | "BCA" | "BBA" | "";
+  examTitle?: string;
+  examDate?: string;
+  examTime?: string;
+  examDuration?: number;
   role: "student";
 }
-

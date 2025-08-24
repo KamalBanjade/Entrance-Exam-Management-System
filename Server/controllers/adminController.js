@@ -13,16 +13,31 @@ const moment = require('moment');
 const createStudent = async (req, res) => {
   try {
     const { name, username, dob, email, phone, program, password, examTitle, examDate, examTime, examDuration } = req.body;
+    
+    // Check for existing username
     const existingUser = await User.findOne({
-      $or: [{ username: username.trim() }, { email: email.trim() }],
+      username: username.trim()
     });
 
     if (existingUser) {
-      const field = existingUser.username === username.trim() ? 'username' : 'email';
       return res.status(400).json({
         success: false,
-        message: `A student with this ${field} already exists`,
+        message: `A student with this username already exists`,
       });
+    }
+
+    // Check for existing email only if email is provided
+    if (email && email.trim()) {
+      const existingEmail = await User.findOne({
+        email: email.trim()
+      });
+
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: `A student with this email already exists`,
+        });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -30,8 +45,8 @@ const createStudent = async (req, res) => {
     const student = new User({
       name: name.trim(),
       username: username.trim(),
-      dob,
-      email: email.trim(),
+      dob: dob || null,
+      email: email ? email.trim() : null,
       phone: phone?.trim() || null,
       program,
       password: hashedPassword,
@@ -56,7 +71,7 @@ const createStudent = async (req, res) => {
       });
     }
 
-  const smsText = `Dear ${name.trim()},
+    const smsText = `Dear ${name.trim()},
 Welcome to Crimson College.
 
 Account Details:
@@ -64,89 +79,92 @@ Username: ${username.trim()}, Password: ${password}, Program: ${program}
 
 ${examTitle ? `Exam Details:
 Title: ${examTitle.trim()}, Date: ${examDate}, Time: ${examTime}
-Duration: ${examDuration} min, Date of birth :${dob || 'Not provided'}
+Duration: ${examDuration} min, Date of birth: ${dob || 'Not provided'}
 
 ` : ''}Thank you,
 CCT Team`;
 
-    const plainText = `
-      Dear ${name.trim()},
+    // Send email only if email is provided
+    if (email && email.trim()) {
+      const plainText = `
+        Dear ${name.trim()},
 
-      Your student account has been successfully created! Welcome to Crimson College.
+        Your student account has been successfully created! Welcome to Crimson College.
 
-      Account Details:
-      - Username: ${username.trim()}
-      - Password: ${password}
-      - Date of Birth: ${dob || 'Not provided'}
-      - Program: ${program}
+        Account Details:
+        - Username: ${username.trim()}
+        - Password: ${password}
+        - Date of Birth: ${dob || 'Not provided'}
+        - Program: ${program}
 
-      ${examTitle ? `
-      Exam Details:
-      - Title: ${examTitle.trim()}
-      - Date: ${examDate}
-      - Time: ${examTime}
-      - Duration: ${examDuration} minutes
-      ` : ''}
+        ${examTitle ? `
+        Exam Details:
+        - Title: ${examTitle.trim()}
+        - Date: ${examDate}
+        - Time: ${examTime}
+        - Duration: ${examDuration} minutes
+        ` : ''}
 
-      Please keep your password secure. For security, change your password after first login.
-      Log in to view your exams: ${process.env.CLIENT_URL || 'https://your-exam-system.com/login'}
+        Please keep your password secure. For security, change your password after first login.
+        Log in to view your exams: ${process.env.CLIENT_URL || 'https://your-exam-system.com/login'}
 
-      Best regards,
-      Crimson College Of Technology
-          `.trim();
+        Best regards,
+        Crimson College Of Technology
+            `.trim();
 
-    // Prepare HTML email
-    const loginUrl = process.env.CLIENT_URL || 'https://your-exam-system.com/login';
-    const welcomeEmailContent = `
-      <p class="greeting">Dear ${name.trim()},</p>
-      <p>Your student account has been successfully created! Welcome to <strong>Crimson College</strong>.</p>
+      // Prepare HTML email
+      const loginUrl = process.env.CLIENT_URL || 'https://your-exam-system.com/login';
+      const welcomeEmailContent = `
+        <p class="greeting">Dear ${name.trim()},</p>
+        <p>Your student account has been successfully created! Welcome to <strong>Crimson College</strong>.</p>
 
-      <div class="details">
-        <strong>Account Details:</strong><br/>
-        • <strong>Username:</strong> ${username.trim()}<br/>
-        • <strong>Password:</strong> ${password}<br/>
-        • <strong>Date of Birth:</strong> ${dob || 'Not provided'}<br/>
-        • <strong>Program:</strong> ${program}
-      </div>
+        <div class="details">
+          <strong>Account Details:</strong><br/>
+          • <strong>Username:</strong> ${username.trim()}<br/>
+          • <strong>Password:</strong> ${password}<br/>
+          • <strong>Date of Birth:</strong> ${dob || 'Not provided'}<br/>
+          • <strong>Program:</strong> ${program}
+        </div>
 
-      ${examTitle ? `
-      <div class="details">
-        <strong>Exam Details:</strong><br/>
-        • <strong>Title:</strong> ${examTitle.trim()}<br/>
-        • <strong>Date:</strong> ${examDate}<br/>
-        • <strong>Time:</strong> ${examTime}<br/>
-        • <strong>Duration:</strong> ${examDuration} minutes
-      </div>
-      ` : ''}
+        ${examTitle ? `
+        <div class="details">
+          <strong>Exam Details:</strong><br/>
+          • <strong>Title:</strong> ${examTitle.trim()}<br/>
+          • <strong>Date:</strong> ${examDate}<br/>
+          • <strong>Time:</strong> ${examTime}<br/>
+          • <strong>Duration:</strong> ${examDuration} minutes
+        </div>
+        ` : ''}
 
-      <p><strong>Note:</strong> For security, please change your password after your first login.</p>
-      <p>Log in now to view your exams and prepare for success!</p>
-      <a href="${loginUrl}" class="button">Log In Now</a>
-    `;
+        <p><strong>Note:</strong> For security, please change your password after your first login.</p>
+        <p>Log in now to view your exams and prepare for success!</p>
+        <a href="${loginUrl}" class="button">Log In Now</a>
+      `;
 
-    const emailHtml = generateEmailTemplate({
-      title: `Welcome, ${name.trim()}!`,
-      content: welcomeEmailContent,
-      footer: `
-        <p>Need help? Visit our <a href="https://support.crimsoncollege.edu">Help Center</a>.</p>
-        <p>&copy; ${new Date().getFullYear()} Crimson College Of Technology</p>
-      `,
-    });
-
-    try {
-      await sendEmail(
-        email.trim(),
-        `Welcome to Crimson College, ${name.trim()}!`,
-        emailHtml,
-        plainText
-      );
-    } catch (emailError) {
-      console.error('❌ Failed to send welcome email:', emailError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send welcome email. Student account was not created. Please check the email address and try again.',
-        error: 'Email delivery failed',
+      const emailHtml = generateEmailTemplate({
+        title: `Welcome, ${name.trim()}!`,
+        content: welcomeEmailContent,
+        footer: `
+          <p>Need help? Visit our <a href="https://support.crimsoncollege.edu">Help Center</a>.</p>
+          <p>&copy; ${new Date().getFullYear()} Crimson College Of Technology</p>
+        `,
       });
+
+      try {
+        await sendEmail(
+          email.trim(),
+          `Welcome to Crimson College, ${name.trim()}!`,
+          emailHtml,
+          plainText
+        );
+      } catch (emailError) {
+        console.error('❌ Failed to send welcome email:', emailError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send welcome email. Student account was not created. Please check the email address and try again.',
+          error: 'Email delivery failed',
+        });
+      }
     }
 
     await student.save();
@@ -167,12 +185,13 @@ CCT Team`;
         console.error('Failed to send welcome SMS:', smsError);
       }
     }
+    
     const studentResponse = student.toObject();
     delete studentResponse.password;
 
     res.status(201).json({
       success: true,
-      message: 'Student created successfully and welcome email sent!',
+      message: `Student created successfully${email ? ' and welcome email sent!' : '!'}`,
       student: studentResponse,
       examScheduled: !!exam,
     });
@@ -186,7 +205,6 @@ CCT Team`;
     });
   }
 };
-
 
 const getAllStudents = async (req, res) => {
   try {
@@ -939,13 +957,15 @@ const updateStudent = async (req, res) => {
     if (!username?.trim()) {
       return res.status(400).json({ success: false, message: 'Username is required' });
     }
-    if (!email?.trim()) {
-      return res.status(400).json({ success: false, message: 'Email is required' });
+    
+    // Email validation only if provided
+    if (email && email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({ success: false, message: 'Invalid email format' });
+      }
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      return res.status(400).json({ success: false, message: 'Invalid email format' });
-    }
+    
     if (phone?.trim()) {
       const phoneRegex = /^\+?\d{10,15}$/;
       if (!phoneRegex.test(phone.trim())) {
@@ -959,12 +979,13 @@ const updateStudent = async (req, res) => {
     const updateData = {
       name: name.trim(),
       username: username.trim(),
-      email: email.trim(),
+      email: email ? email.trim() : null,
       ...(phone?.trim() && { phone: phone.trim() }),
       ...(dob && { dob }),
       ...(program && { program }),
       ...(password?.trim() && { password: password.trim() }),
     };
+    
     const updatedUser = await User.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
@@ -1033,7 +1054,6 @@ const updateStudent = async (req, res) => {
     });
   }
 };
-
 const deleteStudent = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();

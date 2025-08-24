@@ -77,11 +77,6 @@ export const StudentsPage: React.FC = () => {
         return;
       }
 
-      if (!newStudent.email?.trim()) {
-        toast.error('Please enter email address');
-        return;
-      }
-
       if (!newStudent.program) {
         toast.error('Please select a program');
         return;
@@ -92,10 +87,12 @@ export const StudentsPage: React.FC = () => {
         return;
       }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(newStudent.email.trim())) {
-        toast.error('Please enter a valid email address');
-        return;
+      if (newStudent.email?.trim()) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newStudent.email.trim())) {
+          toast.error('Please enter a valid email address');
+          return;
+        }
       }
 
       if (!['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
@@ -104,30 +101,30 @@ export const StudentsPage: React.FC = () => {
       }
 
       if (newStudent.phone?.trim()) {
-        const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
+        const phoneRegex = /^\+?\d{10,15}$/;
         if (!phoneRegex.test(newStudent.phone.trim())) {
           toast.error('Please enter a valid phone number');
           return;
         }
       }
 
-      // if (newStudent.dob) {
-      //   const dobDate = new Date(newStudent.dob);
-      //   const today = new Date();
-      //   const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
+      if (newStudent.dob) {
+        const dobDate = new Date(newStudent.dob);
+        const today = new Date();
+        const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
 
-      //   if (dobDate > minAge) {
-      //     toast.error('Student must be at least 16 years old');
-      //     return;
-      //   }
+        if (dobDate > minAge) {
+          toast.error('Student must be at least 16 years old');
+          return;
+        }
 
-      //   if (dobDate > today) {
-      //     toast.error('Date of birth cannot be in the future');
-      //     return;
-      //   }
-      // }
+        if (dobDate > today) {
+          toast.error('Date of birth cannot be in the future');
+          return;
+        }
+      }
 
-      const hasExamDetails = newStudent.examTitle || newStudent.examDate || newStudent.examTime || newStudent.examDuration;
+      const hasExamDetails = newStudent.examTitle?.trim() || newStudent.examDate || newStudent.examTime || newStudent.examDuration;
 
       if (hasExamDetails) {
         if (!newStudent.examTitle?.trim()) {
@@ -152,6 +149,11 @@ export const StudentsPage: React.FC = () => {
 
         const examDateTime = new Date(`${newStudent.examDate} ${newStudent.examTime}`);
         const now = new Date();
+
+        if (isNaN(examDateTime.getTime())) {
+          toast.error('Invalid exam date or time');
+          return;
+        }
 
         if (examDateTime <= now) {
           toast.error('Exam date and time must be in the future');
@@ -214,8 +216,6 @@ export const StudentsPage: React.FC = () => {
       setIsSubmitting(false);
       return;
     }
-    console.log('Updating student with ID:', currentStudentId); // Debug log
-    console.log('Form data:', newStudent); // Debug log
     setIsSubmitting(true);
 
     if (!newStudent.name?.trim()) {
@@ -228,27 +228,22 @@ export const StudentsPage: React.FC = () => {
       setIsSubmitting(false);
       return;
     }
-    if (!newStudent.email?.trim()) {
-      toast.error('Please enter email address');
-      setIsSubmitting(false);
-      return;
+
+    if (newStudent.email?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newStudent.email.trim())) {
+        toast.error('Please enter a valid email address');
+        setIsSubmitting(false);
+        return;
+      }
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newStudent.email.trim())) {
-      toast.error('Please enter a valid email address');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Program validation
     if (newStudent.program && !['BCSIT', 'BCA', 'BBA'].includes(newStudent.program)) {
       toast.error('Please select a valid program (BCSIT, BCA, or BBA)');
       setIsSubmitting(false);
       return;
     }
 
-    // Phone validation if provided
     if (newStudent.phone?.trim()) {
       const phoneRegex = /^\+?\d{10,15}$/;
       if (!phoneRegex.test(newStudent.phone.trim())) {
@@ -258,13 +253,27 @@ export const StudentsPage: React.FC = () => {
       }
     }
 
+    if (newStudent.dob) {
+      const dobDate = new Date(newStudent.dob);
+      const today = new Date();
+      const minAge = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
 
-    // Exam field validation (only if any exam field is provided)
+      if (dobDate > minAge) {
+        toast.error('Student must be at least 16 years old');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (dobDate > today) {
+        toast.error('Date of birth cannot be in the future');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const hasExamDetails =
-      (newStudent.examTitle && newStudent.examTitle.trim()) || // Check examTitle safely
-      newStudent.examDate ||
-      newStudent.examTime ||
-      newStudent.examDuration;
+      newStudent.examTitle?.trim() || newStudent.examDate || newStudent.examTime || newStudent.examDuration;
+
     if (hasExamDetails) {
       if (!newStudent.examTitle?.trim()) {
         toast.error('Please enter exam title');
@@ -309,17 +318,16 @@ export const StudentsPage: React.FC = () => {
       }
     }
 
-    // Prepare payload, omitting undefined or empty optional fields
     const payload: Partial<StudentData> = {
       name: newStudent.name.trim(),
       username: newStudent.username.trim(),
-      email: newStudent.email.trim(),
+      ...(newStudent.email?.trim() && { email: newStudent.email.trim() }),
       ...(newStudent.phone?.trim() && { phone: newStudent.phone.trim() }),
       ...(newStudent.dob && { dob: newStudent.dob }),
       ...(newStudent.program && { program: newStudent.program }),
       ...(newStudent.password?.trim() && { password: newStudent.password.trim() }),
       ...(hasExamDetails && {
-        examTitle: newStudent.examTitle!.trim(), // Non-null assertion since validated
+        examTitle: newStudent.examTitle!.trim(),
         examDate: newStudent.examDate,
         examTime: newStudent.examTime,
         examDuration: newStudent.examDuration,
@@ -327,14 +335,12 @@ export const StudentsPage: React.FC = () => {
     };
 
     try {
-
-      console.log('Sending payload to apiService:', payload); // Debug log
       const updatedStudent = await apiService.updateStudent(currentStudentId, payload);
       setStudents(students.map((s) => (s._id === currentStudentId ? updatedStudent : s)));
       closeDialog();
       toast.success('✏️ Student updated successfully!');
     } catch (error: any) {
-      const message = error.msg || error.message || 'Failed to update student.';
+      const message = error.response?.data?.message || 'Failed to update student.';
       if (error.status === 404) {
         toast.error('Student not found. Please refresh the student list.');
         await fetchStudents();
@@ -394,16 +400,16 @@ export const StudentsPage: React.FC = () => {
     setNewStudent({
       name: student.name,
       username: student.username,
-      password: "",
-      dob: student.dob || "",
-      email: student.email,
-      phone: student.phone || "",
-      program: student.program || "",
-      examTitle: student.exam?.examTitle || "",
-      examDate: student.exam?.examDate || "",
-      examTime: student.exam?.examTime || "",
+      password: '',
+      dob: student.dob || '',
+      email: student.email || '',
+      phone: student.phone || '',
+      program: student.program || '',
+      examTitle: student.exam?.examTitle || '',
+      examDate: student.exam?.examDate || '',
+      examTime: student.exam?.examTime || '',
       examDuration: student.exam?.examDuration || 60,
-      role: "student",
+      role: 'student',
     });
     setIsDialogOpen(true);
   };
@@ -427,7 +433,6 @@ export const StudentsPage: React.FC = () => {
         return 'bg-gray-50 text-gray-800 border border-gray-200';
     }
   };
-
 
   return (
     <div className="bg-[#F5F5F5] min-h-screen py-8 px-4" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -503,7 +508,7 @@ export const StudentsPage: React.FC = () => {
                         {student.username}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-[#666666]">
-                        {student.email}
+                        {student.email || 'No email'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {student.program ? (
@@ -630,12 +635,11 @@ export const StudentsPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Date of Birth *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Date of Birth</label>
                       <input
                         type="date"
                         value={newStudent.dob}
                         onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                       />
                     </div>
@@ -649,12 +653,11 @@ export const StudentsPage: React.FC = () => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Email *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Email</label>
                       <input
                         type="email"
                         value={newStudent.email}
                         onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                         placeholder="Enter email"
                       />
@@ -689,42 +692,39 @@ export const StudentsPage: React.FC = () => {
                 {/* Exam Assignment */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                   <h3 className="text-lg font-semibold mb-4 text-[#333333] flex items-center">
-                    <FiClock className="mr-2 text-[#DC143C]" /> Exam Assignment
+                    <FiClock className="mr-2 text-[#DC143C]" /> Exam Assignment (Optional)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Title *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Title</label>
                       <input
                         type="text"
                         value={newStudent.examTitle}
                         onChange={(e) => setNewStudent({ ...newStudent, examTitle: e.target.value })}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                         placeholder="e.g., CMAT Exam"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Date *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Date</label>
                       <input
                         type="date"
                         value={newStudent.examDate}
                         onChange={(e) => setNewStudent({ ...newStudent, examDate: e.target.value })}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Time *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Exam Time</label>
                       <input
                         type="time"
                         value={newStudent.examTime}
                         onChange={(e) => setNewStudent({ ...newStudent, examTime: e.target.value })}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#333333] mb-2">Duration (min) *</label>
+                      <label className="block text-sm font-medium text-[#333333] mb-2">Duration (min)</label>
                       <input
                         type="number"
                         value={newStudent.examDuration}
@@ -735,7 +735,6 @@ export const StudentsPage: React.FC = () => {
                           })
                         }
                         min="1"
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-[#333333]"
                         placeholder="e.g., 60"
                       />
@@ -766,9 +765,7 @@ export const StudentsPage: React.FC = () => {
                   >
                     {isSubmitting ? (
                       <>
-                        {/* Spinner */}
                         <FiLoader className="animate-spin" size={16} />
-                        {/* Spacing */}
                         <span className="ml-2 whitespace-nowrap">
                           {isEditing ? 'Updating...' : 'Creating...'}
                         </span>
