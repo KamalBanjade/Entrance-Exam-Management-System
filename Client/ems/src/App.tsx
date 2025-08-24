@@ -206,13 +206,23 @@ const useAuthValidation = () => {
     setUserRole(role);
   };
 
+  const handleLogout = () => {
+    console.log('Logging out user');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('admin');
+    localStorage.removeItem('student');
+    setIsAuthenticated(false);
+    setUserRole(null);
+  };
+
   return { 
     isAuthenticated, 
     setIsAuthenticated, 
     userRole, 
     setUserRole, 
     isLoading,
-    handleSuccessfulLogin
+    handleSuccessfulLogin,
+    handleLogout
   };
 };
 
@@ -223,7 +233,8 @@ const App: FC = () => {
     userRole, 
     setUserRole, 
     isLoading,
-    handleSuccessfulLogin
+    handleSuccessfulLogin,
+    handleLogout
   } = useAuthValidation();
 
   if (isLoading) {

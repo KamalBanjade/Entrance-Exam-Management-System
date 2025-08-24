@@ -24,6 +24,8 @@ interface LoginPortalProps {
 }
 
 const LoginPortal: React.FC<LoginPortalProps> = ({ 
+  setIsAuthenticated, 
+  setUserRole, 
   onSuccessfulLogin 
 }) => {
   const [formData, setFormData] = useState<LoginFormData>({
@@ -205,6 +207,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({
     setShowDateOfBirth(false);
     setError('');
   };
+
   return (
     <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

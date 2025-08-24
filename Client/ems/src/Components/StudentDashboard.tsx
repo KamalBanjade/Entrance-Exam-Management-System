@@ -92,8 +92,7 @@ const fetchExams = async () => {
 
 
 const handleStartExam = async (exam: Exam) => {
-  // 🔥 Use consistent LOCAL TIME (same as fetchExams and backend)
-  const now = moment(); // Changed from moment.utc() to moment()
+  const now = moment(); 
   const examDateTime = moment(`${exam.date} ${exam.time}`, 'YYYY-MM-DD HH:mm');
   const examEndTime = examDateTime.clone().add(parseInt(String(exam.duration)), 'minutes');
   const examStartWithBuffer = examDateTime.clone().subtract(5, 'minutes');
@@ -104,7 +103,7 @@ const handleStartExam = async (exam: Exam) => {
     examId: exam._id,
     canStart: exam.canStart,
     displayStatus: exam.displayStatus,
-    currentTime: now.format('YYYY-MM-DD HH:mm:ss'), // Removed UTC
+    currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
     examWindow: `${examStartWithBuffer.format('HH:mm')} - ${examEndWithBuffer.format('HH:mm')}`,
     isInWindow: now.isBetween(examStartWithBuffer, examEndWithBuffer)
   });
@@ -112,8 +111,8 @@ const handleStartExam = async (exam: Exam) => {
   if (!exam.canStart) {
     console.warn('❌ Exam cannot be started:', {
       reason: exam.displayStatus,
-      currentTime: now.format('YYYY-MM-DD HH:mm:ss'), // Removed UTC
-      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss') // Removed UTC
+      currentTime: now.format('YYYY-MM-DD HH:mm:ss'),
+      examStartTime: examDateTime.format('YYYY-MM-DD HH:mm:ss')
     });
     
     let message = 'Exam not available yet.';
