@@ -151,8 +151,7 @@ export const apiService = {
 
   studentLogin: async (
     username: string,
-    password: string,
-    dob: string
+    password: string
   ): Promise<{
     success: boolean;
     message: string;
@@ -163,7 +162,6 @@ export const apiService = {
       const response = await api.post("/auth/student-login", {
         username,
         password,
-        dob,
       });
       return response.data;
     } catch (error: any) {
@@ -175,7 +173,6 @@ export const apiService = {
   forgotPassword: async (
     email: string,
     username: string,
-    dob: string
   ): Promise<{
     success: boolean;
     message: string;
@@ -184,7 +181,6 @@ export const apiService = {
       const response = await api.post("/auth/forgot-password", {
         email,
         username,
-        dob,
       });
       return response.data;
     } catch (error: any) {

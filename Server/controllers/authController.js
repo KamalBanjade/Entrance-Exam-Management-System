@@ -1,21 +1,23 @@
-const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 const { sendEmail } = require("../utils/sendEmail");
 
 exports.studentLogin = async (req, res) => {
-  const { username, password, dob } = req.body;
+  const { username, password } = req.body;
 
   try {
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: "Username and password are required" });
+    }
+
     const student = await User.findOne({ username, role: "student" });
     if (!student) {
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
-
     const isMatch = await bcrypt.compare(password, student.password);
-
-    if (!isMatch || student.dob !== dob) {
+    if (!isMatch) {
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
@@ -32,8 +34,8 @@ exports.studentLogin = async (req, res) => {
         id: student._id,
         name: student.name,
         username: student.username,
-        program: student.program,
-        email: student.email,
+        program: student.program || null,
+        email: student.email || null,
       },
     });
   } catch (err) {
@@ -76,16 +78,16 @@ exports.adminLogin = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-  const { email, username, dob } = req.body;
+  const { email, username } = req.body;
 
   try {
+    if (!email || !username) {
+      return res.status(400).json({ success: false, message: "Email and username are required" });
+    }
+
     const user = await User.findOne({ username, email });
     if (!user) {
       return res.status(400).json({ success: false, message: "User not found or invalid details" });
-    }
-
-    if (user.role === "student" && user.dob !== dob) {
-      return res.status(400).json({ success: false, message: "Invalid date of birth" });
     }
 
     // Generate a reset token
@@ -141,7 +143,7 @@ exports.validateToken = async (req, res) => {
         name: user.name,
         username: user.username,
         role: user.role,
-        email: user.email,
+        email: user.email || null,
         program: user.program || null,
       },
     });
@@ -149,39 +151,42 @@ exports.validateToken = async (req, res) => {
     res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
+
 exports.checkStudentCredentials = async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const student = await User.findOne({ username, role: "student" });
-
-    if (!student) {
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Student not found"
+        message: "Username and password are required",
       });
     }
 
-    // Check if password matches
-    const isMatch = await bcrypt.compare(password, student.password);
+    const student = await User.findOne({ username, role: "student" });
+    if (!student) {
+      return res.status(400).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
 
+    const isMatch = await bcrypt.compare(password, student.password);
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message: "Invalid password"
+        message: "Invalid password",
       });
     }
 
     res.json({
       success: true,
       message: "Student credentials validated",
-      requiresDateOfBirth: true
     });
-
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: "Server error during credential check"
+      message: "Server error during credential check",
     });
   }
 };
@@ -192,21 +197,21 @@ exports.resetPassword = async (req, res) => {
     if (!token || !newPassword || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
     if (newPassword !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "Passwords do not match"
+        message: "Passwords do not match",
       });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters long"
+        message: "Password must be at least 6 characters long",
       });
     }
 
@@ -216,7 +221,7 @@ exports.resetPassword = async (req, res) => {
     } catch (tokenError) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired reset token"
+        message: "Invalid or expired reset token",
       });
     }
 
@@ -224,7 +229,7 @@ exports.resetPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -234,6 +239,7 @@ exports.resetPassword = async (req, res) => {
 
     user.password = hashedPassword;
     await user.save();
+
     try {
       const confirmationEmailBody = `
 <!DOCTYPE html>
@@ -298,7 +304,7 @@ exports.resetPassword = async (req, res) => {
             <p class="text-gray">If you experience any issues accessing your account or have questions about our services, please don't hesitate to reach out to our support team.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-                <a href="#" class="button">Access Your Account</a>
+                <a href="http://localhost:5173" class="button">Access Your Account</a>
             </div>
             
             <p style="margin-top: 30px;">Thank you for being a valued member of our community.</p>
@@ -320,18 +326,18 @@ exports.resetPassword = async (req, res) => {
 
       await sendEmail(user.email, "Password Reset Confirmation", confirmationEmailBody);
     } catch (emailError) {
+      console.error('Error sending password reset confirmation email:', emailError);
     }
 
     res.json({
       success: true,
       message: "Password reset successfully. You can now log in with your new password.",
-      userRole: user.role
+      userRole: user.role,
     });
-
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: "Server error during password reset"
+      message: "Server error during password reset",
     });
   }
 };

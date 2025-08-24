@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Lock, Calendar, AlertCircle, Mail, ArrowRight, Sparkles, Shield } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, AlertCircle, Mail, ArrowRight, Sparkles, Shield } from 'lucide-react';
 import { toast } from 'react-toastify';
 import logo from '../assets/logo.png'; // Adjust path as needed
-import { apiService } from '../services/apiService'; // Import the apiService object
+import { apiService } from '../services/apiService';
 
 interface LoginFormData {
   username: string;
   password: string;
-  dateOfBirth: string;
 }
 
 interface ForgotPasswordData {
   email: string;
   username: string;
-  dateOfBirth: string;
 }
 
 interface LoginPortalProps {
@@ -26,15 +24,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
   const [formData, setFormData] = useState<LoginFormData>({
     username: '',
     password: '',
-    dateOfBirth: '',
   });
   const [forgotPasswordData, setForgotPasswordData] = useState<ForgotPasswordData>({
     email: '',
     username: '',
-    dateOfBirth: '',
   });
   const [detectedRole, setDetectedRole] = useState<'student' | 'admin' | null>(null);
-  const [showDateOfBirth, setShowDateOfBirth] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -72,7 +67,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
         if (adminResponse.success) {
           console.log('✅ Admin credentials detected');
           setDetectedRole('admin');
-          setShowDateOfBirth(false);
           return;
         }
       } catch (err) {
@@ -85,7 +79,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
         if (studentResponse.success) {
           console.log('✅ Student credentials detected');
           setDetectedRole('student');
-          setShowDateOfBirth(true);
           return;
         }
       } catch (err) {
@@ -94,11 +87,9 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
 
       setError('Invalid username or password');
       setDetectedRole(null);
-      setShowDateOfBirth(false);
     } catch (err) {
       setError('Invalid username or password');
       setDetectedRole(null);
-      setShowDateOfBirth(false);
     } finally {
       setIsCheckingCredentials(false);
     }
@@ -112,18 +103,13 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
       return;
     }
 
-    if (detectedRole === 'student' && !formData.dateOfBirth) {
-      setError('Please enter your date of birth');
-      return;
-    }
-
     setIsLoading(true);
     setError('');
 
     try {
       let response;
       if (detectedRole === 'student') {
-        response = await apiService.studentLogin(formData.username, formData.password, formData.dateOfBirth);
+        response = await apiService.studentLogin(formData.username, formData.password);
       } else {
         response = await apiService.adminLogin(formData.username, formData.password);
       }
@@ -157,7 +143,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     setError('');
     setSuccess('');
 
-    if (!forgotPasswordData.email || !forgotPasswordData.username || !forgotPasswordData.dateOfBirth) {
+    if (!forgotPasswordData.email || !forgotPasswordData.username) {
       setError('Please fill in all fields');
       toast.error('Please fill in all fields');
       setIsLoading(false);
@@ -167,14 +153,13 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     try {
       const response = await apiService.forgotPassword(
         forgotPasswordData.email,
-        forgotPasswordData.username,
-        forgotPasswordData.dateOfBirth
+        forgotPasswordData.username
       );
 
       if (response.success) {
         setSuccess('Password recovery instructions sent to your email!');
         toast.success('Password recovery instructions sent to your email!');
-        setForgotPasswordData({ email: '', username: '', dateOfBirth: '' });
+        setForgotPasswordData({ email: '', username: '' });
       } else {
         setError(response.message || 'Password recovery failed');
         toast.error(response.message || 'Password recovery failed');
@@ -192,16 +177,14 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
     setShowForgotPassword(!showForgotPassword);
     setError('');
     setSuccess('');
-    setFormData({ username: '', password: '', dateOfBirth: '' });
-    setForgotPasswordData({ email: '', username: '', dateOfBirth: '' });
+    setFormData({ username: '', password: '' });
+    setForgotPasswordData({ email: '', username: '' });
     setDetectedRole(null);
-    setShowDateOfBirth(false);
   };
 
   const resetForm = () => {
-    setFormData({ username: '', password: '', dateOfBirth: '' });
+    setFormData({ username: '', password: '' });
     setDetectedRole(null);
-    setShowDateOfBirth(false);
     setError('');
   };
 
@@ -291,21 +274,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                 </button>
               </div>
 
-              {showDateOfBirth && (
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#666666]" />
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleLoginChange}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-sm bg-white transition"
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-              )}
-
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   <AlertCircle size={16} />
@@ -384,19 +352,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ setIsAuthenticated, setUserRo
                   value={forgotPasswordData.username}
                   onChange={handleForgotPasswordChange}
                   placeholder="Username"
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-sm bg-white transition"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#666666]" />
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={forgotPasswordData.dateOfBirth}
-                  onChange={handleForgotPasswordChange}
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DC143C] focus:border-[#DC143C] text-sm bg-white transition"
                   required
                   disabled={isLoading}
